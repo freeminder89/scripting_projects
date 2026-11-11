@@ -1,15 +1,18 @@
-import { Navigation, Script, Text, VStack } from "scripting"
+import { Navigation, Script } from "scripting"
+import { storage } from "./core/storage"
+import { WelcomePage } from "./pages/WelcomePage"
 
-function HelloWorld() {
-  return (
-    <VStack>
-      <Text>amow said hello</Text>
-    </VStack>
-  )
+async function main() {
+  try {
+    await storage.start()
+    await Navigation.present({ element: <WelcomePage /> })
+  } finally {
+    try {
+      await storage.stop()
+    } finally {
+      Script.exit()
+    }
+  }
 }
 
-Navigation.present({
-  element: <HelloWorld />,
-}).then(() => {
-  Script.exit()
-})
+void main().catch(error => console.error("tea_shelf:", error))
