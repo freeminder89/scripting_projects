@@ -1,0 +1,9 @@
+{
+  "name": "tea_shelf",
+  "icon": "cup.and.saucer.fill",
+  "color": "#34C759",
+  "version": "1.0.0",
+  "description": "amow said hello",
+  "runInApp": true,
+  "intentInputTypes": []
+}
