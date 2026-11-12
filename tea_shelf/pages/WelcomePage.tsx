@@ -1,13 +1,18 @@
 import { NavigationStack, Script, ScrollView, Text, VStack } from "scripting"
 import { TeasPage } from "./teas/TeasPage"
 import { HomeToolbar } from "./HomeToolbar"
+import { teaTheme } from "../core/theme"
 
 export function WelcomePage() {
-  return <NavigationStack>
+  return <NavigationStack tint={teaTheme.accent}>
     <ScrollView axes="vertical"
         navigationTitle="茶管家" navigationBarTitleDisplayMode="inline"
+        background={teaTheme.background}
+        foregroundStyle={teaTheme.text}
+        toolbarBackground={{ style: teaTheme.background, bars: ["navigationBar"] }}
+        toolbarBackgroundVisibility={{ visibility: "visible", bars: ["navigationBar"] }}
         toolbar={{
-          topBarLeading: <Text font={9} foregroundStyle="secondaryLabel">
+          topBarLeading: <Text font={9} foregroundStyle={teaTheme.version}>
             版本 {Script.metadata.version}
           </Text>,
         }}
