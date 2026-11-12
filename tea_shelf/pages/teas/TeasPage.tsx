@@ -1,5 +1,5 @@
 import {
-  Button, Dialog, LazyVGrid, NavigationLink, ScrollView, Text, VStack, useEffect, useMemo, useState,
+  Button, LazyVGrid, LongPressGesture, NavigationLink, ScrollView, Text, VStack, useEffect, useMemo, useState,
 } from "scripting"
 import { storage } from "../../core/storage"
 import type { Tea } from "../../core/storage"
@@ -22,7 +22,8 @@ export function TeasPage() {
         setTeas(next)
         setReady(true)
       }
-    } catch {
+    } catch (error) {
+      console.error("tea_shelf load teas:", error)
       if (state.mounted) setError("读取茶品失败，原有数据未被修改，请重试。")
     } finally {
       if (state.mounted) setLoading(false)
@@ -52,7 +53,8 @@ export function TeasPage() {
       if (!confirmed || !state.mounted) return
       const next = await storage.removeTea(tea.id)
       if (state.mounted) setTeas(next)
-    } catch {
+    } catch (error) {
+      console.error("tea_shelf delete tea:", error)
       if (state.mounted) setError("删除失败，原有数据未被修改，请重试。")
     } finally {
       state.deleting = false
@@ -80,7 +82,10 @@ export function TeasPage() {
       ]}>
         {teas.map(tea => <NavigationLink key={tea.id} destination={<TeaEditorPage tea={tea} onSaved={saved} />}
             buttonStyle="plain" frame={{ maxWidth: "infinity" }} disabled={deleting}
-            onLongPressGesture={() => { void confirmDelete(tea) }}>
+            contentShape="rect"
+            highPriorityGesture={LongPressGesture({ minDuration: 500 }).onEnded(recognized => {
+              if (recognized) void confirmDelete(tea)
+            })}>
           <VStack alignment="leading" spacing={10} padding={14}
               frame={{ maxWidth: "infinity", minHeight: 156, alignment: "leading" }}
               background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>

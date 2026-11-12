@@ -1,5 +1,5 @@
 import {
-  Button, Dialog, Form, HStack, Image, Keyboard, Navigation, Picker, Section, Spacer, Text, TextField,
+  Button, Form, HStack, Image, Navigation, Picker, Section, Spacer, Text, TextField,
   useEffect, useMemo, useState,
 } from "scripting"
 import { storage, TEA_PREFERENCES, TEA_STOCKS } from "../../core/storage"
@@ -13,7 +13,8 @@ function NumberField({ title, unit, value, integer, onChanged }: {
   return <HStack spacing={12}>
     <Text frame={{ width: 112, alignment: "leading" }}>{title}</Text>
     <TextField title="" prompt="未设置" value={value} onChanged={onChanged}
-        frame={{ maxWidth: "infinity" }} keyboardType={integer ? "numberPad" : "decimalPad"} />
+        multilineTextAlignment="trailing" frame={{ maxWidth: "infinity" }}
+        keyboardType={integer ? "numberPad" : "decimalPad"} />
     <Text font="caption" foregroundStyle="secondaryLabel">{unit}</Text>
   </HStack>
 }
@@ -67,6 +68,7 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
         change("brand", name.trim())
       }
     } catch (error) {
+      console.error("tea_shelf add brand:", error)
       if (state.mounted) {
         const message = error instanceof Error ? error.message : ""
         setError(/请输入品牌名称|该品牌已存在/.test(message) ? message : "新增品牌失败，请重试。")
@@ -125,19 +127,22 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       <HStack spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
         <TextField title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
-            frame={{ maxWidth: "infinity" }} />
+            multilineTextAlignment="trailing" frame={{ maxWidth: "infinity" }} />
       </HStack>
       <HStack spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品牌</Text>
-        <Picker title="" labelsHidden pickerStyle="menu" value={draft.brand}
-            frame={{ maxWidth: "infinity" }} disabled={!ready}
-            onChanged={(value: string) => change("brand", value)}>
-          <Text tag="">未选择</Text>
-          {brandOptions.map(brand => <Text key={brand} tag={brand}>{brand}</Text>)}
-        </Picker>
-        <Button buttonStyle="plain" disabled={!ready} action={() => { void addBrand() }}>
-          <Image systemName="plus" frame={{ width: 32, height: 32 }} />
-        </Button>
+        <Spacer />
+        <HStack spacing={12}>
+          <Picker title="" labelsHidden pickerStyle="menu" value={draft.brand}
+              frame={{ alignment: "trailing" }} disabled={!ready}
+              onChanged={(value: string) => change("brand", value)}>
+            <Text tag="">未选择</Text>
+            {brandOptions.map(brand => <Text key={brand} tag={brand}>{brand}</Text>)}
+          </Picker>
+          <Button buttonStyle="plain" disabled={!ready} action={() => { void addBrand() }}>
+            <Image systemName="plus" />
+          </Button>
+        </HStack>
       </HStack>
       <Picker title="" labelsHidden pickerStyle="segmented" value={draft.preference}
           onChanged={(value: TeaDraft["preference"]) => change("preference", value)}>
