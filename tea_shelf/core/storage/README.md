@@ -47,8 +47,7 @@ await storage.stop()
 
 ## 配置
 
-`meta.json` 的 `config` 保存首页工具栏配置：`toolbarIconSize` 默认 30（16–42）、`toolbarTextSize` 默认 10（8–16）、`toolbarOffsetUp` 默认 0（0–12，正值向上），均为整数。
-旧元数据缺少配置或部分配置字段时使用默认值，下次写入时补齐。`saveConfig(config)` 使用本地目录事务保存，更新 `updatedAt`，保留茶品、品牌及其他数据；配置随下次备份写入 iCloud，不触发即时同步。
+配置页暂为空，不再提供工具栏按钮配置。旧 `meta.json` 中的 `config` 作为历史字段保留，不参与显示逻辑；新数据不再生成该字段。
 
 ## 茶品
 

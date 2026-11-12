@@ -1,58 +1,28 @@
-import { HStack, Image, NavigationLink, Text, VStack, modifiers, useEffect, useMemo, useState } from "scripting"
+import { HStack, Image, NavigationLink, Text, VStack, modifiers } from "scripting"
 import { ICloudArchivesPage } from "./icloud/ICloudArchivesPage"
 import { teaTheme } from "../core/theme"
 import { ConfigPage } from "./config/ConfigPage"
-import { DEFAULT_CONFIG, storage } from "../core/storage"
-import type { AppConfig } from "../core/storage"
-import { formatError } from "../core/errors"
 
 export function HomeToolbar() {
-  const [config, setConfig] = useState<AppConfig>({ ...DEFAULT_CONFIG })
-  const [error, setError] = useState("")
-  const state = useMemo(() => ({ mounted: true }), [])
-
-  useEffect(() => {
-    state.mounted = true
-    return () => { state.mounted = false }
-  }, [])
-
-  async function load() {
-    try {
-      const meta = await storage.getMeta()
-      if (state.mounted) {
-        setConfig(meta.config)
-        setError("")
-      }
-    } catch (error) {
-      if (state.mounted) setError(formatError(error))
-    }
-  }
-
-  function saved(next: AppConfig) {
-    if (state.mounted) setConfig(next)
-  }
-
   const items = [
     { id: "icloud", title: "icloud", icon: "icloud", destination: <ICloudArchivesPage /> },
-    { id: "config", title: "配置", icon: "gearshape", destination: <ConfigPage onSaved={saved} /> },
+    { id: "config", title: "配置", icon: "gearshape", destination: <ConfigPage /> },
   ]
 
   return <VStack alignment="leading" spacing={6} padding={{ top: 12, leading: 8, trailing: 8 }}
-      frame={{ maxWidth: "infinity", alignment: "leading" }} onAppear={() => { void load() }}>
+      frame={{ maxWidth: "infinity", alignment: "leading" }}>
     <HStack spacing={4} frame={{ minHeight: 60 }}>
-      {items.map(item => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain"
-          offset={{ y: -config.toolbarOffsetUp }}>
+      {items.map(item => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain">
         <VStack spacing={4}
             foregroundStyle={teaTheme.text}
             modifiers={modifiers()
               .frame({ width: 60, height: 60, alignment: "bottom" })
               .background("clear")
               .clipShape({ type: "rect", cornerRadius: 10 })}>
-          <Image systemName={item.icon} font={config.toolbarIconSize} />
-          <Text font={config.toolbarTextSize}>{item.title}</Text>
+          <Image systemName={item.icon} font={32} />
+          <Text font={10}>{item.title}</Text>
         </VStack>
       </NavigationLink>)}
     </HStack>
-    {error ? <Text foregroundStyle="systemRed">{error}</Text> : null}
   </VStack>
 }

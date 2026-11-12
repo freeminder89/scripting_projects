@@ -2,38 +2,6 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 export type DataFileName = `data.${number}.json`
 export type DataFiles = Partial<Record<DataFileName, JsonValue>>
 
-export type AppConfig = {
-  toolbarIconSize: number
-  toolbarTextSize: number
-  toolbarOffsetUp: number
-}
-export const DEFAULT_CONFIG: Readonly<AppConfig> = {
-  toolbarIconSize: 30,
-  toolbarTextSize: 10,
-  toolbarOffsetUp: 0,
-}
-export const CONFIG_LIMITS = {
-  toolbarIconSize: { min: 16, max: 42 },
-  toolbarTextSize: { min: 8, max: 16 },
-  // Keep the buttons within the toolbar's 12-point top padding.
-  toolbarOffsetUp: { min: 0, max: 12 },
-} as const
-
-function parseConfig(value: unknown): AppConfig {
-  if (value === undefined) return { ...DEFAULT_CONFIG }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("配置格式不正确")
-  }
-  const config = { ...DEFAULT_CONFIG, ...value } as AppConfig
-  for (const key of Object.keys(CONFIG_LIMITS) as (keyof AppConfig)[]) {
-    const { min, max } = CONFIG_LIMITS[key]
-    if (!Number.isSafeInteger(config[key]) || config[key] < min || config[key] > max) {
-      throw new Error(`配置 ${key} 须为 ${min}–${max} 之间的整数`)
-    }
-  }
-  return config
-}
-
 export const TEA_PREFERENCES = ["✅还行", "👍夯", "💥顶夯"] as const
 export const TEA_STOCKS = ["无", "一两", "半斤以上"] as const
 export type TeaInput = {
@@ -116,7 +84,6 @@ export interface StorageMeta {
   lastSyncAt: string | null
   files: DataFileName[]
   brands: string[]
-  config: AppConfig
 }
 
 /** Minimal adapter for Scripting FileManager; also permits filesystem tests. */
@@ -170,7 +137,7 @@ function parseMeta(text: string): StorageMeta {
     throw new Error("Invalid tea_shelf meta.json; refusing to overwrite existing data")
   }
   // Older local/backup metadata remains readable; persist on the next write.
-  return { ...meta, brands: meta.brands ?? [], config: parseConfig(meta.config) }
+  return { ...meta, brands: meta.brands ?? [] }
 }
 
 function dateLabel(date: Date): string {
@@ -250,7 +217,7 @@ export class TeaShelfStorage {
     if (!await this.fs.exists(this.directory)) {
       // No automatic backup of a freshly initialized empty dataset.
       await this.replace(this.directory, {
-        "meta.json": encode({ schemaVersion: 1, updatedAt: null, lastSyncAt: null, files: [], brands: [], config: DEFAULT_CONFIG }),
+        "meta.json": encode({ schemaVersion: 1, updatedAt: null, lastSyncAt: null, files: [], brands: [] }),
       })
     }
     await this.snapshot()
@@ -272,18 +239,6 @@ export class TeaShelfStorage {
     return this.local(async () => {
       await this.initialize()
       return (await this.snapshot()).meta
-    })
-  }
-
-  async saveConfig(config: AppConfig): Promise<AppConfig> {
-    const validated = parseConfig(config)
-    return this.local(async () => {
-      await this.initialize()
-      const { meta, files } = await this.snapshot()
-      // Retain unknown configuration keys for forward compatibility.
-      meta.config = { ...meta.config, ...validated }
-      await this.commit(meta, files)
-      return { ...meta.config }
     })
   }
 

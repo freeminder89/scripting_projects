@@ -67,11 +67,13 @@ export function TeasPage() {
             buttonStyle="plain" frame={{ maxWidth: "infinity" }} contentShape="rect">
           <VStack alignment="leading" spacing={6} padding={10}
               modifiers={modifiers()
-                .frame({ maxWidth: "infinity", minHeight: 109, alignment: "leading" })
+                .frame({ maxWidth: "infinity", minHeight: 109, maxHeight: 109, alignment: "leading" })
                 .background(teaTheme.card)
                 .clipShape({ type: "rect", cornerRadius: 16 })}>
-            <Text font="headline" foregroundStyle={teaTheme.text}>{tea.name}</Text>
-            <Text font="subheadline" foregroundStyle={teaTheme.secondaryText}>{tea.brand || "未选品牌"}</Text>
+            <Text font="headline" foregroundStyle={teaTheme.text} lineLimit={2} minScaleFactor={0.8}>{tea.name}</Text>
+            <Text font="subheadline" foregroundStyle={teaTheme.secondaryText} lineLimit={1} minScaleFactor={0.8}>
+              {tea.brand || "未选品牌"}
+            </Text>
             <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
               <Text font="caption" foregroundStyle={teaTheme.rating} lineLimit={1} minScaleFactor={0.75}>
                 {tea.preference} · {tea.stock}
