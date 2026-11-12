@@ -59,14 +59,16 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
   async function addBrand() {
     if (state.busy || !ready) return
     state.busy = true
-    setAddingBrand(true)
-    setError("")
+    let submitting = false
     try {
       const name = await Dialog.prompt({
         title: "新增品牌", placeholder: "品牌名称", cancelLabel: "取消", confirmLabel: "添加",
       })
       // Native bridges may return either null or undefined on cancellation.
       if (name == null || !state.mounted) return
+      submitting = true
+      setAddingBrand(true)
+      setError("")
       const next = storage.addBrand(name)
       await storage.saveMeta()
       if (state.mounted) {
@@ -81,7 +83,7 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       }
     } finally {
       state.busy = false
-      if (state.mounted) setAddingBrand(false)
+      if (state.mounted && submitting) setAddingBrand(false)
     }
   }
 
@@ -145,7 +147,7 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       navigationTitle={tea ? "编辑茶品" : "新增茶品"}
       navigationBarTitleDisplayMode="inline"
       onAppear={() => {
-        if (state.busy) return
+        if (state.busy || ready) return
         setDraft(createTeaDraft(tea))
         void loadBrands()
       }}

@@ -2,7 +2,7 @@
   "name": "tea_shelf",
   "icon": "cup.and.saucer.fill",
   "color": "#34C759",
-  "version": "20261112-1852",
+  "version": "20261112-1854",
   "description": "Personal tea shelf with brand management and iCloud backups",
   "runInApp": true,
   "intentInputTypes": []
