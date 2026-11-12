@@ -6,6 +6,7 @@ export * from "./storage"
 export const storage = new TeaShelfStorage({
   fs: {
     exists: path => FileManager.exists(path),
+    isDirectory: path => FileManager.isDirectory(path),
     createDirectory: (path, recursive) => FileManager.createDirectory(path, recursive),
     readDirectory: path => FileManager.readDirectory(path),
     readAsString: path => FileManager.readAsString(path),

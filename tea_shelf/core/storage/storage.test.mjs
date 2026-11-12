@@ -22,6 +22,12 @@ async function fixture(t) {
         throw error
       }
     },
+    isDirectory: async path => {
+      try { return (await fs.stat(path)).isDirectory() } catch (error) {
+        if (error.code === "ENOENT") return false
+        throw error
+      }
+    },
     createDirectory: async (path, recursive) => { await fs.mkdir(path, { recursive }) },
     readDirectory: path => fs.readdir(path),
     readAsString: path => fs.readFile(path, "utf8"),
@@ -437,4 +443,41 @@ test("failed tea deletion leaves the record intact", async t => {
   await assert.rejects(f.storage.removeTea(tea.id), /Disk full/)
   assert.deepEqual(await f.storage.getMeta(), before)
   assert.deepEqual(await f.storage.listTeas(), [tea])
+})
+
+test("archive listing distinguishes unavailable iCloud from an empty archive without creating data", async t => {
+  const f = await fixture(t)
+  f.setAvailable(false)
+  assert.equal(await f.storage.listBackupDirectories(), null)
+  f.setAvailable(true)
+  assert.deepEqual(await f.storage.listBackupDirectories(), [])
+  assert.equal(await f.adapter.exists(f.local), false)
+  assert.equal(await f.adapter.exists(f.cloud), false)
+  assert.equal(f.timers.size, 0)
+})
+
+test("archive listing returns only dated directories newest first and never mutates files", async t => {
+  const f = await fixture(t)
+  const dates = Array.from({ length: 7 }, (_, i) => `tea_shelf.2026-11-0${i + 1}`)
+  for (const name of [...dates, "tea_shelf.2026-11-08.pending", "tea_shelf.2026-11-09.previous", "other"]) {
+    await fs.mkdir(join(f.cloud, name), { recursive: true })
+  }
+  await fs.writeFile(join(f.cloud, "tea_shelf.2026-11-10"), "a file, not a directory")
+  const before = await fs.readdir(f.cloud)
+  for (const name of ["createDirectory", "writeAsString", "rename", "remove"]) {
+    f.adapter[name] = async () => { throw new Error(`Read-only listing attempted ${name}`) }
+  }
+  assert.deepEqual(await f.storage.listBackupDirectories(), [...dates].reverse())
+  assert.deepEqual(await fs.readdir(f.cloud), before)
+  assert.equal(await f.adapter.exists(f.local), false)
+  assert.equal(f.timers.size, 0)
+})
+
+test("archive listing preserves the original read error", async t => {
+  const f = await fixture(t)
+  await fs.mkdir(f.cloud, { recursive: true })
+  const error = new Error("iCloud directory unavailable")
+  f.adapter.readDirectory = async () => { throw error }
+  await assert.rejects(f.storage.listBackupDirectories(), value => value === error)
+  assert.equal(await f.adapter.exists(f.local), false)
 })

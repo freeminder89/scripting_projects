@@ -46,8 +46,6 @@ export function TeasPage() {
   }
 
   return <ScrollView
-      navigationTitle="茶品管理"
-      navigationBarTitleDisplayMode="inline"
       onAppear={() => { void load() }}
       toolbar={{ topBarTrailing: <NavigationLink title="新增茶品" disabled={!ready || loading}
           destination={<TeaEditorPage onSaved={saved} />} /> }}

@@ -87,6 +87,7 @@ export interface StorageMeta {
 /** Minimal adapter for Scripting FileManager; also permits filesystem tests. */
 export interface StorageFileSystem {
   exists(path: string): Promise<boolean>
+  isDirectory(path: string): Promise<boolean>
   createDirectory(path: string, recursive: boolean): Promise<void>
   readDirectory(path: string): Promise<string[]>
   readAsString(path: string): Promise<string>
@@ -237,6 +238,18 @@ export class TeaShelfStorage {
       await this.initialize()
       return (await this.snapshot()).meta
     })
+  }
+
+  /** Read-only archive listing. Does not initialize, synchronize, recover or prune files. */
+  async listBackupDirectories(): Promise<string[] | null> {
+    const root = this.options.backupDirectory()
+    if (root === null) return null
+    if (!await this.fs.exists(root)) return []
+    const names = (await this.fs.readDirectory(root))
+      .filter(name => /^tea_shelf\.\d{4}-\d{2}-\d{2}$/.test(name))
+    const directories = await Promise.all(names.map(async name =>
+      await this.fs.isDirectory(`${root}/${name}`) ? name : null))
+    return directories.filter((name): name is string => name !== null).sort().reverse()
   }
 
   /** Brand mutations share the local queue with chunk writes and backup acknowledgments. */
