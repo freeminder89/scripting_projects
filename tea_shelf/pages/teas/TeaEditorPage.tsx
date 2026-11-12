@@ -1,6 +1,6 @@
 import {
-  Button, Form, GeometryReader, HStack, Image, Navigation, Picker, ScrollViewReader, Section, Spacer, Text, TextField,
-  useEffect, useKeyboardVisible, useMemo, useState, withAnimation,
+  Button, Form, GeometryReader, HStack, Image, Navigation, Picker, ScrollViewReader, Section, Spacer, Text, TextField, VStack,
+  useEffect, useKeyboardVisible, useMemo, useState,
 } from "scripting"
 import type { ScrollViewProxy } from "scripting"
 import { storage, TEA_PREFERENCES, TEA_STOCKS } from "../../core/storage"
@@ -51,19 +51,32 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
   const [error, setError] = useState("")
   const keyboardVisible = useKeyboardVisible()
   const [activeInput, setActiveInput] = useState<InputField | null>(null)
+  const [movingFocus, setMovingFocus] = useState(false)
   const [focusRequest, setFocusRequest] = useState<{
     field: InputField | null, versions: Partial<Record<InputField, number>>,
   }>({ field: null, versions: {} })
-  const state = useMemo(() => ({ mounted: true, busy: false, draftId: tea?.id }), [])
+  const state = useMemo(() => ({
+    mounted: true, busy: false, draftId: tea?.id, focusRevision: 0, moving: false,
+    centeredByNext: null as { field: InputField, height: number } | null,
+  }), [])
+
+  function centerInput(field: InputField) {
+    return withAnimation(Animation.easeOut(0.3), () => scrollProxy.scrollTo(rowKey(field), "center"))
+  }
 
   useEffect(() => {
-    if (!keyboardVisible || activeInput === null || state.busy) return
-    // Wait for keyboard avoidance / the new row identity to reach native layout.
+    if (!keyboardVisible || activeInput === null || state.busy || state.moving) return
+    if (state.centeredByNext?.field === activeInput && state.centeredByNext.height === viewportHeight) {
+      state.centeredByNext = null
+      return
+    }
+    // Debounce layout changes so native keyboard avoidance finishes first.
+    const revision = state.focusRevision
     const timer = setTimeout(() => {
-      if (state.mounted && !state.busy) {
-        withAnimation(() => scrollProxy.scrollTo(rowKey(activeInput), "center"))
+      if (state.mounted && !state.busy && !state.moving && state.focusRevision === revision) {
+        void centerInput(activeInput).catch(error => console.error("tea_shelf center input:", error))
       }
-    }, 120)
+    }, 300)
     return () => clearTimeout(timer)
   }, [activeInput, keyboardVisible, viewportHeight, scrollProxy])
 
@@ -72,6 +85,7 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
       key: `${field}-${focusRequest.versions[field] ?? 0}`,
       autofocus: focusRequest.field === field,
       onFocus: () => {
+        state.focusRevision++
         setActiveInput(field)
         setFocusRequest(previous => previous.field !== null && previous.field !== field
           ? { ...previous, field: null } : previous)
@@ -82,18 +96,32 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
   }
 
   const nextInput = activeInput === null ? undefined : inputOrder[inputOrder.indexOf(activeInput) + 1]
-  function focusNext() {
-    if (state.busy || nextInput === undefined) return
-    scrollProxy.scrollTo(rowKey(nextInput), "center")
-    // autofocus is mount-only: recreate only the destination input, keeping
-    // its controlled draft value and the stable scroll target on the row.
-    setFocusRequest(previous => ({
-      field: nextInput,
-      versions: { ...previous.versions, [nextInput]: (previous.versions[nextInput] ?? 0) + 1 },
-    }))
+  async function focusNext() {
+    if (state.busy || state.moving || nextInput === undefined) return
+    state.moving = true
+    setMovingFocus(true)
+    const revision = ++state.focusRevision
+    try {
+      // Make offscreen rows visible smoothly before autofocus can trigger
+      // a competing native scroll. A manual focus change cancels the handoff.
+      await centerInput(nextInput)
+      if (!state.mounted || state.focusRevision !== revision) return
+      state.centeredByNext = { field: nextInput, height: viewportHeight }
+      setFocusRequest(previous => ({
+        field: nextInput,
+        versions: { ...previous.versions, [nextInput]: (previous.versions[nextInput] ?? 0) + 1 },
+      }))
+    } catch (error) {
+      console.error("tea_shelf next input:", error)
+    } finally {
+      state.moving = false
+      if (state.mounted) setMovingFocus(false)
+    }
   }
 
   function finishInput() {
+    state.focusRevision++
+    state.centeredByNext = null
     setFocusRequest(previous => ({ ...previous, field: null }))
     setActiveInput(null)
     Keyboard.hide()
@@ -222,7 +250,8 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
             disabled={!ready || saving || addingBrand || deleting || !draft.name.trim() || !draft.brand.trim()}
             action={() => { void save() }} />,
         keyboard: <HStack spacing={20}>
-          <Button title="下一项" disabled={nextInput === undefined || saving || addingBrand || deleting} action={focusNext} />
+          <Button title="下一项" disabled={nextInput === undefined || movingFocus || saving || addingBrand || deleting}
+              action={() => { void focusNext() }} />
           <Spacer />
           <Button title="完成" action={finishInput} />
         </HStack>,
@@ -232,7 +261,10 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
       <Text foregroundStyle="systemRed">{error}</Text>
       {!ready ? <Button title="重试" action={() => { void loadBrands() }} /> : null}
     </Section> : null}
-    <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand || deleting}>
+    <Section header={<VStack alignment="leading" spacing={0}>
+      {keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : null}
+      <Text>基本信息</Text>
+    </VStack>} disabled={saving || addingBrand || deleting}>
       <HStack key={rowKey("name")} spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
         <TextField {...inputFocus("name")} title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}

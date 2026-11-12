@@ -2,11 +2,13 @@ import { HStack, Image, NavigationLink, Text, VStack, modifiers } from "scriptin
 import { ICloudArchivesPage } from "./icloud/ICloudArchivesPage"
 import { teaTheme } from "../core/theme"
 import { ConfigPage } from "./config/ConfigPage"
+import { StatisticsPage } from "./statistics/StatisticsPage"
 
 export function HomeToolbar() {
   const items = [
     { id: "icloud", title: "icloud", icon: "icloud", destination: <ICloudArchivesPage /> },
     { id: "config", title: "配置", icon: "gearshape", destination: <ConfigPage /> },
+    { id: "statistics", title: "统计", icon: "chart.bar", destination: <StatisticsPage /> },
   ]
 
   return <VStack alignment="leading" spacing={6} padding={{ top: 12, leading: 8, trailing: 8 }}
