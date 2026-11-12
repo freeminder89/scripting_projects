@@ -1,4 +1,4 @@
-import { HStack, Image, NavigationLink, Text, modifiers } from "scripting"
+import { HStack, Image, NavigationLink, Text, VStack, modifiers } from "scripting"
 import { ICloudArchivesPage } from "./icloud/ICloudArchivesPage"
 import { teaTheme } from "../core/theme"
 
@@ -7,18 +7,18 @@ export function HomeToolbar() {
     { id: "icloud", title: "icloud", icon: "icloud", destination: <ICloudArchivesPage /> },
   ]
 
-  return <HStack spacing={12} padding={{ leading: 16, trailing: 16 }}
-      frame={{ maxWidth: "infinity", minHeight: 40, alignment: "leading" }}>
+  return <HStack spacing={12} padding={{ top: 12, leading: 16, trailing: 16 }}
+      frame={{ maxWidth: "infinity", minHeight: 80, alignment: "leading" }}>
       {items.map(item => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain">
-        <HStack spacing={8}
+        <VStack spacing={8}
             foregroundStyle={teaTheme.buttonText}
             modifiers={modifiers()
-              .frame({ width: 100, height: 40 })
+              .frame({ width: 80, height: 80 })
               .background(teaTheme.button)
               .clipShape({ type: "rect", cornerRadius: 10 })}>
-          <Image systemName={item.icon} font="body" />
-          <Text font="subheadline">{item.title}</Text>
-        </HStack>
+          <Image systemName={item.icon} font={30} />
+          <Text font={9}>{item.title}</Text>
+        </VStack>
       </NavigationLink>)}
   </HStack>
 }

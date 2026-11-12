@@ -43,8 +43,9 @@ export function teaFromDraft(draft: TeaDraft): TeaInput {
     return parsed
   }
   if (!draft.name.trim()) throw new Error("请输入品名")
+  if (!draft.brand.trim()) throw new Error("请选择品牌")
   return {
-    name: draft.name.trim(), brand: draft.brand,
+    name: draft.name.trim(), brand: draft.brand.trim(),
     preference: draft.preference, stock: draft.stock,
     pricePerJin: number(draft.pricePerJin, "斤价", true),
     cupBrew: {

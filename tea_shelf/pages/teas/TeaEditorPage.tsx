@@ -142,7 +142,8 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       }}
       toolbar={{
         topBarTrailing: <Button title={saving ? "保存中…" : "保存"}
-            disabled={!ready || saving || addingBrand || deleting || !draft.name.trim()} action={() => { void save() }} />,
+            disabled={!ready || saving || addingBrand || deleting || !draft.name.trim() || !draft.brand.trim()}
+            action={() => { void save() }} />,
         keyboard: <HStack><Spacer /><Button title="完成" action={() => Keyboard.hide()} /></HStack>,
       }}
   >

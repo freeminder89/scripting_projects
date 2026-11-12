@@ -298,7 +298,7 @@ function teaInput(name = "熟普") {
 }
 
 test("tea form preserves decimals, distinguishes blank from zero and rejects invalid numbers", () => {
-  const draft = createTeaDraft()
+  const draft = { ...createTeaDraft(), brand: "大益" }
   const emptyNumbers = teaFromDraft({ ...draft, name: "红茶", pricePerJin: "0", firstSteepMinutes: ".5" })
   assert.equal(emptyNumbers.pricePerJin, 0)
   assert.equal(emptyNumbers.cupBrew.grams300ml, null)
@@ -480,4 +480,29 @@ test("archive listing preserves the original read error", async t => {
   f.adapter.readDirectory = async () => { throw error }
   await assert.rejects(f.storage.listBackupDirectories(), value => value === error)
   assert.equal(await f.adapter.exists(f.local), false)
+})
+
+test("tea saves require a nonblank brand in both the form and storage", async t => {
+  const f = await fixture(t)
+  const before = await f.storage.getMeta()
+  for (const brand of ["", "  \n "]) {
+    assert.throws(() => teaFromDraft({ ...createTeaDraft(), name: "红茶", brand }), /请选择品牌/)
+    await assert.rejects(f.storage.upsertTea({ ...teaInput(), brand }), /请选择品牌/)
+  }
+  assert.deepEqual(await f.storage.getMeta(), before)
+  assert.deepEqual(await f.storage.listTeas(), [])
+})
+
+test("legacy unbranded teas remain readable and require a brand only when edited", async t => {
+  const f = await fixture(t)
+  const legacy = { ...teaInput("旧茶"), id: "legacy", brand: "" }
+  await f.storage.write("data.0.json", { schemaVersion: 1, teas: [legacy] })
+  assert.deepEqual(await f.storage.listTeas(), [legacy])
+  const added = await f.storage.upsertTea(teaInput("新茶"))
+  assert.equal((await f.storage.listTeas()).length, 2)
+  await assert.rejects(f.storage.upsertTea(legacy, legacy.id), /请选择品牌/)
+  const updated = await f.storage.upsertTea({ ...legacy, brand: " 中茶 " }, legacy.id)
+  assert.equal(updated.brand, "中茶")
+  assert.deepEqual((await f.storage.getMeta()).brands, ["大益", "中茶"])
+  assert.deepEqual(await f.storage.removeTea(added.id), [updated])
 })

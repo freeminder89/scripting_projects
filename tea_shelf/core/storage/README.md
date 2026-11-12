@@ -28,13 +28,13 @@ iCloud 备份位于 `FileManager.iCloudDocumentsDirectory/tea_shelf/tea_shelf.YY
 import { storage } from "./core/storage"
 
 await storage.start()
-await storage.write("data.0.json", { teas: [] })
+await storage.write("data.0.json", { schemaVersion: 1, teas: [] })
 const data = await storage.read("data.0.json")
 const meta = await storage.getMeta()
 // 茶品编辑页新增的品牌保存在 meta.json 中，更新 updatedAt，不触发即时同步。
 await storage.addBrand("大益")
 // 完整替换数据集；未列出的分块被删除。
-await storage.save({ "data.0.json": { teas: [] }, "data.1.json": [] })
+await storage.save({ "data.0.json": { schemaVersion: 1, teas: [] }, "data.1.json": [] })
 // 退出时停止检查并等待正在进行的备份，不强制同步。
 await storage.stop()
 ```
@@ -50,6 +50,7 @@ await storage.stop()
 `listTeas()` 读取茶品列表；`upsertTea(input, id?)` 新增或按稳定 ID 编辑茶品；`removeTea(id)` 删除茶品并保留品牌和其他分块。
 当前茶品集合存放于 `data.0.json`，结构为 `{ "schemaVersion": 1, "teas": [...] }`，后续可扩展分块。
 每条记录包含品名、品牌、喜好、斤价、存量、杯泡和功夫配置。未设置的数字用 `null` 表示，不与 `0` 混淆。
+新增或保存茶品时，品名和品牌均必填。旧数据中的空品牌仍可读取，编辑保存时需补齐品牌。
 杯泡分钟和投茶克数支持小数；斤价、秒数、杯数、泡数为整数，杯数和最大泡数填写时至少为 1。
 茶品保存与新品牌注册在同一目录事务中提交，失败不会单独留下品牌；不会触发即时同步。
 编辑页的加号通过 `addBrand()` 立即独立保存品牌并选中，不等待茶品保存。

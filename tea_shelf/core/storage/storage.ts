@@ -34,9 +34,10 @@ function readPreference(value: unknown): TeaInput["preference"] {
 }
 
 /** Validate persisted values as well as form submissions; do not coerce corrupt data. */
-export function validateTea(input: TeaInput): TeaInput {
+export function validateTea(input: TeaInput, allowEmptyBrand = false): TeaInput {
   if (!input || typeof input.name !== "string" || !input.name.trim()) throw new Error("请输入品名")
   if (typeof input.brand !== "string") throw new Error("品牌格式不正确")
+  if (!allowEmptyBrand && !input.brand.trim()) throw new Error("请选择品牌")
   if (!TEA_PREFERENCES.includes(input.preference)) throw new Error("请选择个人喜好")
   if (!TEA_STOCKS.includes(input.stock)) throw new Error("请选择存量")
   const number = (value: unknown, label: string, integer = false, min = 0) => {
@@ -70,7 +71,8 @@ function parseTeas(content?: string): { schemaVersion: 1, teas: Tea[] } {
       throw new Error("茶品编号无效或重复，已停止写入")
     }
     tea.preference = readPreference(tea.preference)
-    validateTea(tea)
+    // Keep older unbranded records readable; new saves must provide a brand.
+    validateTea(tea, true)
     ids.add(tea.id)
   }
   return value
