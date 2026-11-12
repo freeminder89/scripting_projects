@@ -1,5 +1,5 @@
 import {
-  Button, LazyVGrid, NavigationLink, ScrollView, Text, VStack, useEffect, useMemo, useState,
+  Button, LazyVGrid, NavigationLink, Text, VStack, useEffect, useMemo, useState,
 } from "scripting"
 import { storage } from "../../core/storage"
 import type { Tea } from "../../core/storage"
@@ -45,12 +45,12 @@ export function TeasPage() {
     if (state.mounted) setTeas(previous => previous.filter(tea => tea.id !== id))
   }
 
-  return <ScrollView
+  return <VStack alignment="leading" spacing={16} padding={16}
+      frame={{ maxWidth: "infinity", alignment: "leading" }}
       onAppear={() => { void load() }}
       toolbar={{ topBarTrailing: <NavigationLink title="新增茶品" disabled={!ready || loading}
           destination={<TeaEditorPage onSaved={saved} />} /> }}
   >
-    <VStack alignment="leading" spacing={16} padding={16} frame={{ maxWidth: "infinity", alignment: "leading" }}>
       {loading ? <Text foregroundStyle="secondaryLabel">正在读取…</Text> : null}
       {error ? <VStack alignment="leading">
         <Text foregroundStyle="systemRed">{error}</Text>
@@ -64,8 +64,8 @@ export function TeasPage() {
         {teas.map(tea => <NavigationLink key={tea.id}
             destination={<TeaEditorPage tea={tea} onSaved={saved} onDeleted={deleted} />}
             buttonStyle="plain" frame={{ maxWidth: "infinity" }} contentShape="rect">
-          <VStack alignment="leading" spacing={10} padding={14}
-              frame={{ maxWidth: "infinity", minHeight: 156, alignment: "leading" }}
+          <VStack alignment="leading" spacing={6} padding={10}
+              frame={{ maxWidth: "infinity", minHeight: 109, alignment: "leading" }}
               background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>
             <Text font="headline" foregroundStyle="label">{tea.name}</Text>
             <Text font="subheadline" foregroundStyle="secondaryLabel">{tea.brand || "未选品牌"}</Text>
@@ -76,6 +76,5 @@ export function TeasPage() {
           </VStack>
         </NavigationLink>)}
       </LazyVGrid>
-    </VStack>
-  </ScrollView>
+  </VStack>
 }

@@ -1,4 +1,4 @@
-import { HStack, Image, NavigationLink, ScrollView, Text, modifiers } from "scripting"
+import { HStack, Image, NavigationLink, Text, modifiers } from "scripting"
 import { ICloudArchivesPage } from "./icloud/ICloudArchivesPage"
 
 const BUTTON_COLORS = ["#D9D28B", "#B2BD7E", "#8E9162", "#6A795D"] as const
@@ -8,8 +8,8 @@ export function HomeToolbar() {
     { id: "icloud", title: "icloud", icon: "icloud", destination: <ICloudArchivesPage /> },
   ]
 
-  return <ScrollView axes="horizontal" scrollIndicator="hidden" frame={{ height: 40 }}>
-    <HStack spacing={12} padding={{ leading: 16, trailing: 16 }}>
+  return <HStack spacing={12} padding={{ leading: 16, trailing: 16 }}
+      frame={{ maxWidth: "infinity", minHeight: 40, alignment: "leading" }}>
       {items.map((item, index) => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain">
         <HStack spacing={8}
             foregroundStyle={index % BUTTON_COLORS.length === 3 ? "white" : "#253323"}
@@ -21,6 +21,5 @@ export function HomeToolbar() {
           <Text font="subheadline">{item.title}</Text>
         </HStack>
       </NavigationLink>)}
-    </HStack>
-  </ScrollView>
+  </HStack>
 }
