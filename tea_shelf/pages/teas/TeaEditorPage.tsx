@@ -1,5 +1,5 @@
 import {
-  Button, Form, HStack, Keyboard, Navigation, Picker, Section, Spacer, Text, TextField,
+  Button, Dialog, Form, HStack, Image, Keyboard, Navigation, Picker, Section, Spacer, Text, TextField,
   useEffect, useMemo, useState,
 } from "scripting"
 import { storage, TEA_PREFERENCES, TEA_STOCKS } from "../../core/storage"
@@ -10,9 +10,10 @@ import type { TeaDraft } from "./draft"
 function NumberField({ title, unit, value, integer, onChanged }: {
   title: string, unit: string, value: string, integer?: boolean, onChanged: (value: string) => void,
 }) {
-  return <HStack>
-    <TextField title={title} prompt="未设置" value={value} onChanged={onChanged}
-        keyboardType={integer ? "numberPad" : "decimalPad"} />
+  return <HStack spacing={12}>
+    <Text frame={{ width: 112, alignment: "leading" }}>{title}</Text>
+    <TextField title="" prompt="未设置" value={value} onChanged={onChanged}
+        frame={{ maxWidth: "infinity" }} keyboardType={integer ? "numberPad" : "decimalPad"} />
     <Text font="caption" foregroundStyle="secondaryLabel">{unit}</Text>
   </HStack>
 }
@@ -23,6 +24,7 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
   const [brands, setBrands] = useState<string[]>([])
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [addingBrand, setAddingBrand] = useState(false)
   const [error, setError] = useState("")
   const state = useMemo(() => ({ mounted: true, busy: false }), [])
 
@@ -47,6 +49,32 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
 
   function change<K extends keyof TeaDraft>(key: K, value: TeaDraft[K]) {
     setDraft(previous => ({ ...previous, [key]: value }))
+  }
+
+  async function addBrand() {
+    if (state.busy || !ready) return
+    state.busy = true
+    setAddingBrand(true)
+    setError("")
+    try {
+      const name = await Dialog.prompt({
+        title: "新增品牌", placeholder: "品牌名称", cancelLabel: "取消", confirmLabel: "添加",
+      })
+      if (name === null || !state.mounted) return
+      const next = await storage.addBrand(name)
+      if (state.mounted) {
+        setBrands(next)
+        change("brand", name.trim())
+      }
+    } catch (error) {
+      if (state.mounted) {
+        const message = error instanceof Error ? error.message : ""
+        setError(/请输入品牌名称|该品牌已存在/.test(message) ? message : "新增品牌失败，请重试。")
+      }
+    } finally {
+      state.busy = false
+      if (state.mounted) setAddingBrand(false)
+    }
   }
 
   async function save() {
@@ -79,12 +107,13 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       navigationTitle={tea ? "编辑茶品" : "新增茶品"}
       navigationBarTitleDisplayMode="inline"
       onAppear={() => {
+        if (state.busy) return
         setDraft(createTeaDraft(tea))
         void loadBrands()
       }}
       toolbar={{
         topBarTrailing: <Button title={saving ? "保存中…" : "保存"}
-            disabled={!ready || saving || !draft.name.trim()} action={() => { void save() }} />,
+            disabled={!ready || saving || addingBrand || !draft.name.trim()} action={() => { void save() }} />,
         keyboard: <HStack><Spacer /><Button title="完成" action={() => Keyboard.hide()} /></HStack>,
       }}
   >
@@ -92,29 +121,43 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       <Text foregroundStyle="systemRed">{error}</Text>
       {!ready ? <Button title="重试" action={() => { void loadBrands() }} /> : null}
     </Section> : null}
-    <Section header={<Text>基本信息</Text>} disabled={saving}>
-      <TextField title="品名" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)} />
-      <Picker title="品牌" pickerStyle="menu" value={draft.brand} onChanged={(value: string) => change("brand", value)}>
-        <Text tag="">未选择</Text>
-        {brandOptions.map(brand => <Text key={brand} tag={brand}>{brand}</Text>)}
-      </Picker>
-      <TextField title="新品牌（选填）" prompt="保存时创建并选用" value={draft.newBrand}
-          onChanged={value => change("newBrand", value)} />
-      <Picker title="个人喜好" pickerStyle="segmented" value={draft.preference}
+    <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand}>
+      <HStack spacing={12}>
+        <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
+        <TextField title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
+            frame={{ maxWidth: "infinity" }} />
+      </HStack>
+      <HStack spacing={12}>
+        <Text frame={{ width: 56, alignment: "leading" }}>品牌</Text>
+        <Picker title="" labelsHidden pickerStyle="menu" value={draft.brand}
+            frame={{ maxWidth: "infinity" }} disabled={!ready}
+            onChanged={(value: string) => change("brand", value)}>
+          <Text tag="">未选择</Text>
+          {brandOptions.map(brand => <Text key={brand} tag={brand}>{brand}</Text>)}
+        </Picker>
+        <Button buttonStyle="plain" disabled={!ready} action={() => { void addBrand() }}>
+          <Image systemName="plus" frame={{ width: 32, height: 32 }} />
+        </Button>
+      </HStack>
+      <Picker title="" labelsHidden pickerStyle="segmented" value={draft.preference}
           onChanged={(value: TeaDraft["preference"]) => change("preference", value)}>
         {TEA_PREFERENCES.map(value => <Text key={value} tag={value}>{value}</Text>)}
       </Picker>
       <NumberField title="斤价" unit="元/斤" integer value={draft.pricePerJin} onChanged={value => change("pricePerJin", value)} />
-      <Picker title="存量" pickerStyle="segmented" value={draft.stock}
+      <HStack spacing={12}>
+        <Text frame={{ width: 56, alignment: "leading" }}>存量</Text>
+        <Picker title="" labelsHidden pickerStyle="segmented" value={draft.stock}
+          frame={{ maxWidth: "infinity" }}
           onChanged={(value: TeaDraft["stock"]) => change("stock", value)}>
         {TEA_STOCKS.map(value => <Text key={value} tag={value}>{value}</Text>)}
-      </Picker>
+        </Picker>
+      </HStack>
     </Section>
-    <Section header={<Text>杯泡配置</Text>} footer={<Text>数字可留空，留空表示未设置</Text>} disabled={saving}>
+    <Section header={<Text>杯泡配置</Text>} footer={<Text>数字可留空，留空表示未设置</Text>} disabled={saving || addingBrand}>
       <NumberField title="300ml投茶量" unit="g" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
       <NumberField title="首杯出汤" unit="分钟" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
     </Section>
-    <Section header={<Text>功夫配置</Text>} disabled={saving}>
+    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand}>
       <NumberField title="茶碗投茶量" unit="g" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
       <NumberField title="首杯出汤" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
       <NumberField title="几杯顺延" unit="杯" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />

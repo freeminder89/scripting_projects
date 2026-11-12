@@ -2,7 +2,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 export type DataFileName = `data.${number}.json`
 export type DataFiles = Partial<Record<DataFileName, JsonValue>>
 
-export const TEA_PREFERENCES = ["不行", "口粮", "不错", "很好"] as const
+export const TEA_PREFERENCES = ["✅还行", "👍夯", "💥顶夯"] as const
 export const TEA_STOCKS = ["无", "一两", "半斤以上"] as const
 export type TeaInput = {
   name: string
@@ -21,6 +21,17 @@ export type TeaInput = {
 }
 export type Tea = TeaInput & { id: string }
 export const TEAS_FILE: DataFileName = "data.0.json"
+
+function readPreference(value: unknown): TeaInput["preference"] {
+  switch (value) {
+    case "不行": case "口粮": return "✅还行"
+    case "不错": return "👍夯"
+    case "很好": return "💥顶夯"
+    default:
+      if (TEA_PREFERENCES.includes(value as TeaInput["preference"])) return value as TeaInput["preference"]
+      throw new Error("请选择个人喜好")
+  }
+}
 
 /** Validate persisted values as well as form submissions; do not coerce corrupt data. */
 export function validateTea(input: TeaInput): TeaInput {
@@ -58,6 +69,7 @@ function parseTeas(content?: string): { schemaVersion: 1, teas: Tea[] } {
     if (!tea || typeof tea.id !== "string" || !tea.id || ids.has(tea.id)) {
       throw new Error("茶品编号无效或重复，已停止写入")
     }
+    tea.preference = readPreference(tea.preference)
     validateTea(tea)
     ids.add(tea.id)
   }
@@ -283,6 +295,20 @@ export class TeaShelfStorage {
       files[TEAS_FILE] = encode(data)
       await this.commit(meta, files)
       return tea
+    })
+  }
+
+  /** Delete only the requested record; keep brands and all other data chunks. */
+  async removeTea(id: string): Promise<Tea[]> {
+    return this.local(async () => {
+      await this.initialize()
+      const { meta, files } = await this.snapshot()
+      const data = parseTeas(files[TEAS_FILE])
+      if (!data.teas.some(tea => tea.id === id)) return data.teas
+      data.teas = data.teas.filter(tea => tea.id !== id)
+      files[TEAS_FILE] = encode(data)
+      await this.commit(meta, files)
+      return data.teas
     })
   }
 

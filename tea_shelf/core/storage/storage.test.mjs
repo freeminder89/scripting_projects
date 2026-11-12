@@ -291,7 +291,7 @@ test("invalid brands metadata is rejected without erasing the original", async t
 
 function teaInput(name = "熟普") {
   return teaFromDraft({
-    ...createTeaDraft(), name, newBrand: "大益", preference: "很好", stock: "半斤以上",
+    ...createTeaDraft(), name, brand: "大益", preference: "💥顶夯", stock: "半斤以上",
     pricePerJin: "280", grams300ml: "3.5", firstSteepMinutes: "1.25", gongfuGrams: "7.5",
     firstSteepSeconds: "15", extendEveryCups: "3", extendSeconds: "5", maxSteeps: "12",
   })
@@ -392,4 +392,55 @@ test("unrecognized or corrupt tea files are never overwritten by saving a new te
   await f.storage.write("data.0.json", { schemaVersion: 1, teas: [tea, tea] })
   await assert.rejects(f.storage.listTeas(), /编号无效或重复/)
   assert.equal((await f.storage.read("data.0.json")).teas.length, 2)
+})
+
+test("legacy ratings remain readable and are converted when tea data is next saved", async t => {
+  const f = await fixture(t)
+  const teas = ["不行", "口粮", "不错", "很好"].map((preference, index) => ({
+    ...teaInput(`茶${index}`), id: String(index), preference,
+  }))
+  await f.storage.write("data.0.json", { schemaVersion: 1, teas })
+  const loaded = await f.storage.listTeas()
+  assert.deepEqual(loaded.map(tea => tea.preference), ["✅还行", "✅还行", "👍夯", "💥顶夯"])
+  await f.storage.upsertTea({ ...loaded[0], preference: "👍夯" }, loaded[0].id)
+  assert.deepEqual((await f.storage.read("data.0.json")).teas.map(tea => tea.preference),
+    ["👍夯", "✅还行", "👍夯", "💥顶夯"])
+  await assert.rejects(f.storage.upsertTea({ ...teaInput(), preference: "不行" }), /请选择个人喜好/)
+})
+
+test("tea deletion preserves other teas, brands and chunks and reaches the next backup", async t => {
+  const f = await fixture(t)
+  await f.storage.write("data.1.json", { untouched: true })
+  const first = await f.storage.upsertTea(teaInput("茶1"))
+  const second = await f.storage.upsertTea(teaInput("茶2"))
+  await f.sync()
+  const before = await f.storage.getMeta()
+  assert.deepEqual(await f.storage.removeTea(first.id), [second])
+  const meta = await f.storage.getMeta()
+  assert.ok(Date.parse(meta.updatedAt) > Date.parse(before.updatedAt))
+  assert.equal(meta.lastSyncAt, before.lastSyncAt)
+  assert.deepEqual(meta.brands, ["大益"])
+  assert.deepEqual(await f.storage.read("data.1.json"), { untouched: true })
+  assert.equal(await f.sync(), "synced")
+  const backup = JSON.parse(await fs.readFile(join(f.cloud, "tea_shelf.2026-11-01/data.0.json")))
+  assert.deepEqual(backup.teas, [second])
+  const after = await f.storage.getMeta()
+  await f.storage.removeTea(first.id)
+  assert.deepEqual(await f.storage.getMeta(), after)
+  assert.deepEqual(await f.storage.removeTea(second.id), [])
+  assert.deepEqual(await new TeaShelfStorage(f.options).listTeas(), [])
+})
+
+test("failed tea deletion leaves the record intact", async t => {
+  const f = await fixture(t)
+  const tea = await f.storage.upsertTea(teaInput())
+  const before = await f.storage.getMeta()
+  const rename = f.adapter.rename
+  f.adapter.rename = async (from, to) => {
+    if (from === f.local + ".pending" && to === f.local) throw new Error("Disk full")
+    await rename(from, to)
+  }
+  await assert.rejects(f.storage.removeTea(tea.id), /Disk full/)
+  assert.deepEqual(await f.storage.getMeta(), before)
+  assert.deepEqual(await f.storage.listTeas(), [tea])
 })

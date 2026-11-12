@@ -3,7 +3,6 @@ import type { Tea, TeaInput } from "../../core/storage/storage"
 export type TeaDraft = {
   name: string
   brand: string
-  newBrand: string
   preference: TeaInput["preference"]
   stock: TeaInput["stock"]
   pricePerJin: string
@@ -19,8 +18,8 @@ export type TeaDraft = {
 export function createTeaDraft(tea?: Tea): TeaDraft {
   const text = (value: number | null | undefined) => value == null ? "" : String(value)
   return {
-    name: tea?.name ?? "", brand: tea?.brand ?? "", newBrand: "",
-    preference: tea?.preference ?? "口粮", stock: tea?.stock ?? "无",
+    name: tea?.name ?? "", brand: tea?.brand ?? "",
+    preference: tea?.preference ?? "✅还行", stock: tea?.stock ?? "无",
     pricePerJin: text(tea?.pricePerJin), grams300ml: text(tea?.cupBrew.grams300ml),
     firstSteepMinutes: text(tea?.cupBrew.firstSteepMinutes),
     gongfuGrams: text(tea?.gongfuBrew.grams), firstSteepSeconds: text(tea?.gongfuBrew.firstSteepSeconds),
@@ -45,7 +44,7 @@ export function teaFromDraft(draft: TeaDraft): TeaInput {
   }
   if (!draft.name.trim()) throw new Error("请输入品名")
   return {
-    name: draft.name.trim(), brand: draft.newBrand.trim() || draft.brand,
+    name: draft.name.trim(), brand: draft.brand,
     preference: draft.preference, stock: draft.stock,
     pricePerJin: number(draft.pricePerJin, "斤价", true),
     cupBrew: {
