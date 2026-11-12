@@ -1,5 +1,5 @@
 import {
-  Button, LazyVGrid, NavigationLink, Text, VStack, useEffect, useMemo, useState,
+  Button, HStack, LazyVGrid, NavigationLink, Spacer, Text, VStack, modifiers, useEffect, useMemo, useState,
 } from "scripting"
 import { storage } from "../../core/storage"
 import type { Tea } from "../../core/storage"
@@ -65,14 +65,39 @@ export function TeasPage() {
             destination={<TeaEditorPage tea={tea} onSaved={saved} onDeleted={deleted} />}
             buttonStyle="plain" frame={{ maxWidth: "infinity" }} contentShape="rect">
           <VStack alignment="leading" spacing={6} padding={10}
-              frame={{ maxWidth: "infinity", minHeight: 109, alignment: "leading" }}
-              background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>
+              modifiers={modifiers()
+                .frame({ maxWidth: "infinity", minHeight: 109, alignment: "leading" })
+                .background({
+                  light: {
+                    gradient: [
+                      { color: "#F4F1D9", location: 0 },
+                      { color: "#E2E7D0", location: 1 },
+                    ],
+                    startPoint: { x: 0, y: 0 },
+                    endPoint: { x: 1, y: 1 },
+                  },
+                  dark: {
+                    gradient: [
+                      { color: "#30382B", location: 0 },
+                      { color: "#20271F", location: 1 },
+                    ],
+                    startPoint: { x: 0, y: 0 },
+                    endPoint: { x: 1, y: 1 },
+                  },
+                })
+                .clipShape({ type: "rect", cornerRadius: 16 })}>
             <Text font="headline" foregroundStyle="label">{tea.name}</Text>
             <Text font="subheadline" foregroundStyle="secondaryLabel">{tea.brand || "未选品牌"}</Text>
-            <Text font="caption" foregroundStyle="systemGreen">{tea.preference} · {tea.stock}</Text>
-            <Text font="caption" foregroundStyle="secondaryLabel">
-              {tea.pricePerJin === null ? "斤价未设置" : `${tea.pricePerJin} 元/斤`}
-            </Text>
+            <HStack spacing={6} frame={{ maxWidth: "infinity" }}>
+              <Text font="caption" foregroundStyle="systemGreen" lineLimit={1} minScaleFactor={0.75}>
+                {tea.preference} · {tea.stock}
+              </Text>
+              <Spacer />
+              <Text font="caption" foregroundStyle="secondaryLabel" multilineTextAlignment="trailing"
+                  lineLimit={1} minScaleFactor={0.75}>
+                {tea.pricePerJin === null ? "斤价未设置" : `${tea.pricePerJin} 元/斤`}
+              </Text>
+            </HStack>
           </VStack>
         </NavigationLink>)}
       </LazyVGrid>
