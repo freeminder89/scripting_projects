@@ -239,16 +239,10 @@ test("brand changes serialize, reject blank/duplicate names and stay local until
   await assert.rejects(f.storage.addBrand(" \n "), /请输入品牌名称/)
   await assert.rejects(f.storage.addBrand(" 大益 "), /该品牌已存在/)
   assert.deepEqual(await f.storage.getMeta(), before)
-  assert.deepEqual(await f.storage.removeBrand("大益"), ["中茶"])
   await f.sync()
   const backup = JSON.parse(await fs.readFile(join(f.cloud, "tea_shelf.2026-11-01/meta.json")))
-  assert.deepEqual(backup.brands, ["中茶"])
-  const after = await f.storage.getMeta()
-  await f.storage.removeBrand("不存在的品牌")
-  assert.deepEqual(await f.storage.getMeta(), after)
-  await f.storage.removeBrand("中茶")
-  assert.equal(await f.sync(), "synced")
-  assert.deepEqual(JSON.parse(await fs.readFile(join(f.cloud, "tea_shelf.2026-11-01/meta.json"))).brands, [])
+  assert.deepEqual(backup.brands, ["大益", "中茶"])
+  assert.equal(await f.sync(), "unchanged")
 })
 
 test("brand added during a backup survives its acknowledgment and is backed up", async t => {

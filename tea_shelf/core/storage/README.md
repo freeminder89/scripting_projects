@@ -31,9 +31,8 @@ await storage.start()
 await storage.write("data.0.json", { teas: [] })
 const data = await storage.read("data.0.json")
 const meta = await storage.getMeta()
-// 品牌保存在 meta.json 中，增删也更新 updatedAt，不触发即时同步。
+// 茶品编辑页新增的品牌保存在 meta.json 中，更新 updatedAt，不触发即时同步。
 await storage.addBrand("大益")
-await storage.removeBrand("大益")
 // 完整替换数据集；未列出的分块被删除。
 await storage.save({ "data.0.json": { teas: [] }, "data.1.json": [] })
 // 退出时停止检查并等待正在进行的备份，不强制同步。

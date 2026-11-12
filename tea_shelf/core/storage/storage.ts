@@ -253,17 +253,6 @@ export class TeaShelfStorage {
     })
   }
 
-  async removeBrand(name: string): Promise<string[]> {
-    return this.local(async () => {
-      await this.initialize()
-      const { meta, files } = await this.snapshot()
-      if (!meta.brands.includes(name)) return [...meta.brands]
-      meta.brands = meta.brands.filter(brand => brand !== name)
-      await this.commit(meta, files)
-      return [...meta.brands]
-    })
-  }
-
   async listTeas(): Promise<Tea[]> {
     return this.local(async () => {
       await this.initialize()

@@ -199,7 +199,7 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
     {tea ? <Section>
       <Button role="destructive" disabled={saving || addingBrand || deleting}
           action={() => { void deleteTea() }}>
-        <Text foregroundStyle="systemRed" frame={{ maxWidth: "infinity", minHeight: 44 }}>
+        <Text foregroundStyle="systemRed" frame={{ maxWidth: "infinity" }}>
           {deleting ? "删除中…" : "删除茶品"}
         </Text>
       </Button>
