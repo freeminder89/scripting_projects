@@ -37,12 +37,12 @@ export function HomeToolbar() {
     { id: "config", title: "配置", icon: "gearshape", destination: <ConfigPage onSaved={saved} /> },
   ]
 
-  return <VStack alignment="leading" spacing={6} padding={{ top: 12, leading: 16, trailing: 16 }}
+  return <VStack alignment="leading" spacing={6} padding={{ top: 12, leading: 8, trailing: 8 }}
       frame={{ maxWidth: "infinity", alignment: "leading" }} onAppear={() => { void load() }}>
-    <HStack spacing={12} frame={{ minHeight: 80 }}>
+    <HStack spacing={4} frame={{ minHeight: 80 }}>
       {items.map(item => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain"
           offset={{ y: -config.toolbarOffsetUp }}>
-        <VStack spacing={8}
+        <VStack spacing={4}
             foregroundStyle={teaTheme.text}
             modifiers={modifiers()
               .frame({ width: 80, height: 80 })
