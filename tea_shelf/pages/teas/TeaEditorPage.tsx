@@ -1,27 +1,45 @@
 import {
-  Button, Form, HStack, Image, Navigation, Picker, Section, Spacer, Text, TextField,
-  useEffect, useMemo, useState,
+  Button, Form, GeometryReader, HStack, Image, Navigation, Picker, ScrollViewReader, Section, Spacer, Text, TextField,
+  useEffect, useKeyboardVisible, useMemo, useState, withAnimation,
 } from "scripting"
+import type { ScrollViewProxy } from "scripting"
 import { storage, TEA_PREFERENCES, TEA_STOCKS } from "../../core/storage"
 import type { Tea } from "../../core/storage"
 import { createTeaDraft, teaFromDraft } from "./draft"
 import type { TeaDraft } from "./draft"
 import { formatError } from "../../core/errors"
 
-function NumberField({ title, unit, value, integer, onChanged }: {
+const inputOrder = ["name", "pricePerJin", "grams300ml", "firstSteepMinutes", "gongfuGrams",
+  "firstSteepSeconds", "extendEveryCups", "extendSeconds", "maxSteeps"] as const
+type InputField = typeof inputOrder[number]
+type InputFocus = { key: string, autofocus: boolean, onFocus: () => void, onBlur: () => void }
+const rowKey = (field: InputField) => `tea-input-${field}`
+
+function NumberField({ title, unit, value, integer, onChanged, inputFocus }: {
   title: string, unit: string, value: string, integer?: boolean, onChanged: (value: string) => void,
+  inputFocus: InputFocus,
 }) {
   return <HStack spacing={12}>
     <Text frame={{ width: 112, alignment: "leading" }}>{title}</Text>
-    <TextField title="" prompt="未设置" value={value} onChanged={onChanged}
+    <TextField {...inputFocus} title="" prompt="未设置" value={value} onChanged={onChanged}
         multilineTextAlignment="trailing" frame={{ maxWidth: "infinity" }}
         keyboardType={integer ? "numberPad" : "decimalPad"} />
     <Text font="caption" foregroundStyle="secondaryLabel">{unit}</Text>
   </HStack>
 }
 
-export function TeaEditorPage({ tea, onSaved, onDeleted }: {
+type TeaEditorProps = {
   tea?: Tea, onSaved: (tea: Tea) => void, onDeleted?: (id: string) => void,
+}
+
+export function TeaEditorPage(props: TeaEditorProps) {
+  return <GeometryReader>{geometry => <ScrollViewReader>{scrollProxy =>
+    <TeaEditorForm {...props} scrollProxy={scrollProxy} viewportHeight={geometry.size.height} />
+  }</ScrollViewReader>}</GeometryReader>
+}
+
+function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }: TeaEditorProps & {
+  scrollProxy: ScrollViewProxy, viewportHeight: number,
 }) {
   const dismiss = Navigation.useDismiss()
   const [draft, setDraft] = useState(createTeaDraft(tea))
@@ -31,7 +49,55 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
   const [addingBrand, setAddingBrand] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
+  const keyboardVisible = useKeyboardVisible()
+  const [activeInput, setActiveInput] = useState<InputField | null>(null)
+  const [focusRequest, setFocusRequest] = useState<{
+    field: InputField | null, versions: Partial<Record<InputField, number>>,
+  }>({ field: null, versions: {} })
   const state = useMemo(() => ({ mounted: true, busy: false, draftId: tea?.id }), [])
+
+  useEffect(() => {
+    if (!keyboardVisible || activeInput === null || state.busy) return
+    // Wait for keyboard avoidance / the new row identity to reach native layout.
+    const timer = setTimeout(() => {
+      if (state.mounted && !state.busy) {
+        withAnimation(() => scrollProxy.scrollTo(rowKey(activeInput), "center"))
+      }
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [activeInput, keyboardVisible, viewportHeight, scrollProxy])
+
+  function inputFocus(field: InputField): InputFocus {
+    return {
+      key: `${field}-${focusRequest.versions[field] ?? 0}`,
+      autofocus: focusRequest.field === field,
+      onFocus: () => {
+        setActiveInput(field)
+        setFocusRequest(previous => previous.field !== null && previous.field !== field
+          ? { ...previous, field: null } : previous)
+      },
+      onBlur: () => setFocusRequest(previous => previous.field === field
+        ? { ...previous, field: null } : previous),
+    }
+  }
+
+  const nextInput = activeInput === null ? undefined : inputOrder[inputOrder.indexOf(activeInput) + 1]
+  function focusNext() {
+    if (state.busy || nextInput === undefined) return
+    scrollProxy.scrollTo(rowKey(nextInput), "center")
+    // autofocus is mount-only: recreate only the destination input, keeping
+    // its controlled draft value and the stable scroll target on the row.
+    setFocusRequest(previous => ({
+      field: nextInput,
+      versions: { ...previous.versions, [nextInput]: (previous.versions[nextInput] ?? 0) + 1 },
+    }))
+  }
+
+  function finishInput() {
+    setFocusRequest(previous => ({ ...previous, field: null }))
+    setActiveInput(null)
+    Keyboard.hide()
+  }
 
   async function loadBrands() {
     setReady(false)
@@ -155,7 +221,11 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
         topBarTrailing: <Button title={saving ? "保存中…" : "保存"}
             disabled={!ready || saving || addingBrand || deleting || !draft.name.trim() || !draft.brand.trim()}
             action={() => { void save() }} />,
-        keyboard: <HStack><Spacer /><Button title="完成" action={() => Keyboard.hide()} /></HStack>,
+        keyboard: <HStack spacing={20}>
+          <Button title="下一项" disabled={nextInput === undefined || saving || addingBrand || deleting} action={focusNext} />
+          <Spacer />
+          <Button title="完成" action={finishInput} />
+        </HStack>,
       }}
   >
     {error ? <Section>
@@ -163,9 +233,9 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       {!ready ? <Button title="重试" action={() => { void loadBrands() }} /> : null}
     </Section> : null}
     <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand || deleting}>
-      <HStack spacing={12}>
+      <HStack key={rowKey("name")} spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
-        <TextField title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
+        <TextField {...inputFocus("name")} title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
             multilineTextAlignment="trailing" frame={{ maxWidth: "infinity" }} />
       </HStack>
       <HStack spacing={12}>
@@ -187,7 +257,7 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
           onChanged={(value: TeaDraft["preference"]) => change("preference", value)}>
         {TEA_PREFERENCES.map(value => <Text key={value} tag={value}>{value}</Text>)}
       </Picker>
-      <NumberField title="斤价" unit="元/斤" integer value={draft.pricePerJin} onChanged={value => change("pricePerJin", value)} />
+      <NumberField key={rowKey("pricePerJin")} inputFocus={inputFocus("pricePerJin")} title="斤价" unit="元/斤" integer value={draft.pricePerJin} onChanged={value => change("pricePerJin", value)} />
       <HStack spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>存量</Text>
         <Picker title="" labelsHidden pickerStyle="segmented" value={draft.stock}
@@ -198,17 +268,18 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       </HStack>
     </Section>
     <Section header={<Text>杯泡配置</Text>} footer={<Text>数字可留空，留空表示未设置</Text>} disabled={saving || addingBrand || deleting}>
-      <NumberField title="300ml投茶量" unit="克" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
-      <NumberField title="首泡" unit="分" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
+      <NumberField key={rowKey("grams300ml")} inputFocus={inputFocus("grams300ml")} title="300ml投茶量" unit="克" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
+      <NumberField key={rowKey("firstSteepMinutes")} inputFocus={inputFocus("firstSteepMinutes")} title="首泡" unit="分" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
     </Section>
-    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}>
-      <NumberField title="茶碗投茶量" unit="克" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
-      <NumberField title="首泡" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
-      <NumberField title="几泡顺延" unit="泡" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
-      <NumberField title="顺延秒" unit="秒" integer value={draft.extendSeconds} onChanged={value => change("extendSeconds", value)} />
-      <NumberField title="最大泡数" unit="泡" integer value={draft.maxSteeps} onChanged={value => change("maxSteeps", value)} />
+    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}
+        footer={!tea && keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : undefined}>
+      <NumberField key={rowKey("gongfuGrams")} inputFocus={inputFocus("gongfuGrams")} title="茶碗投茶量" unit="克" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
+      <NumberField key={rowKey("firstSteepSeconds")} inputFocus={inputFocus("firstSteepSeconds")} title="首泡" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
+      <NumberField key={rowKey("extendEveryCups")} inputFocus={inputFocus("extendEveryCups")} title="几泡顺延" unit="泡" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
+      <NumberField key={rowKey("extendSeconds")} inputFocus={inputFocus("extendSeconds")} title="顺延秒" unit="秒" integer value={draft.extendSeconds} onChanged={value => change("extendSeconds", value)} />
+      <NumberField key={rowKey("maxSteeps")} inputFocus={inputFocus("maxSteeps")} title="最大泡数" unit="泡" integer value={draft.maxSteeps} onChanged={value => change("maxSteeps", value)} />
     </Section>
-    {tea ? <Section>
+    {tea ? <Section footer={keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : undefined}>
       <Button role="destructive" disabled={saving || addingBrand || deleting}
           action={() => { void deleteTea() }}>
         <Text foregroundStyle="systemRed" frame={{ maxWidth: "infinity" }}>
