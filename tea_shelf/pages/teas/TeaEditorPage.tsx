@@ -31,7 +31,7 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
   const [addingBrand, setAddingBrand] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
-  const state = useMemo(() => ({ mounted: true, busy: false }), [])
+  const state = useMemo(() => ({ mounted: true, busy: false, draftId: tea?.id }), [])
 
   async function loadBrands() {
     setReady(false)
@@ -67,9 +67,10 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
       })
       // Native bridges may return either null or undefined on cancellation.
       if (name == null || !state.mounted) return
-      const next = await storage.addBrand(name)
+      const next = storage.addBrand(name)
+      await storage.saveMeta()
       if (state.mounted) {
-        setBrands(next)
+        setBrands([...next])
         change("brand", name.trim())
       }
     } catch (error) {
@@ -91,7 +92,14 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
     setError("")
     try {
       const input = teaFromDraft(draft)
-      const saved = await storage.upsertTea(input, tea?.id)
+      if (!storage.meta.brands.includes(input.brand)) {
+        storage.addBrand(input.brand)
+        await storage.saveMeta()
+      }
+      const saved = storage.upsertTea(input, state.draftId)
+      // Keep the ID after a failed write so retrying cannot create a duplicate.
+      state.draftId = saved.id
+      await storage.saveData()
       onSaved(saved)
       if (state.mounted) {
         if (!tea) setDraft(createTeaDraft())
@@ -119,7 +127,8 @@ export function TeaEditorPage({ tea, onSaved, onDeleted }: {
         title: "删除茶品", message: `确定删除“${tea.name}”吗？`, cancelLabel: "取消", confirmLabel: "删除",
       })
       if (!confirmed || !state.mounted) return
-      await storage.removeTea(tea.id)
+      storage.removeTea(tea.id)
+      await storage.saveData()
       onDeleted?.(tea.id)
       if (state.mounted) dismiss()
     } catch (error) {
