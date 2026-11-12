@@ -2,6 +2,68 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 export type DataFileName = `data.${number}.json`
 export type DataFiles = Partial<Record<DataFileName, JsonValue>>
 
+export const TEA_PREFERENCES = ["不行", "口粮", "不错", "很好"] as const
+export const TEA_STOCKS = ["无", "一两", "半斤以上"] as const
+export type TeaInput = {
+  name: string
+  brand: string
+  preference: typeof TEA_PREFERENCES[number]
+  pricePerJin: number | null
+  stock: typeof TEA_STOCKS[number]
+  cupBrew: { grams300ml: number | null, firstSteepMinutes: number | null }
+  gongfuBrew: {
+    grams: number | null
+    firstSteepSeconds: number | null
+    extendEveryCups: number | null
+    extendSeconds: number | null
+    maxSteeps: number | null
+  }
+}
+export type Tea = TeaInput & { id: string }
+export const TEAS_FILE: DataFileName = "data.0.json"
+
+/** Validate persisted values as well as form submissions; do not coerce corrupt data. */
+export function validateTea(input: TeaInput): TeaInput {
+  if (!input || typeof input.name !== "string" || !input.name.trim()) throw new Error("请输入品名")
+  if (typeof input.brand !== "string") throw new Error("品牌格式不正确")
+  if (!TEA_PREFERENCES.includes(input.preference)) throw new Error("请选择个人喜好")
+  if (!TEA_STOCKS.includes(input.stock)) throw new Error("请选择存量")
+  const number = (value: unknown, label: string, integer = false, min = 0) => {
+    if (value === null) return
+    if (typeof value !== "number" || !Number.isFinite(value) || value < min
+      || (integer && !Number.isSafeInteger(value))) {
+      throw new Error(`${label}须为${min === 1 ? "正" : "非负"}${integer ? "整数" : "数字"}`)
+    }
+  }
+  if (!input.cupBrew || !input.gongfuBrew) throw new Error("泡茶配置格式不正确")
+  number(input.pricePerJin, "斤价", true)
+  number(input.cupBrew.grams300ml, "300ml投茶量")
+  number(input.cupBrew.firstSteepMinutes, "杯泡首杯出汤")
+  number(input.gongfuBrew.grams, "茶碗投茶量")
+  number(input.gongfuBrew.firstSteepSeconds, "功夫首杯出汤", true)
+  number(input.gongfuBrew.extendEveryCups, "几杯顺延", true, 1)
+  number(input.gongfuBrew.extendSeconds, "顺延秒", true)
+  number(input.gongfuBrew.maxSteeps, "最大泡数", true, 1)
+  return { ...input, name: input.name.trim(), brand: input.brand.trim() }
+}
+
+function parseTeas(content?: string): { schemaVersion: 1, teas: Tea[] } {
+  if (content === undefined) return { schemaVersion: 1, teas: [] }
+  const value = JSON.parse(content)
+  if (!value || value.schemaVersion !== 1 || !Array.isArray(value.teas)) {
+    throw new Error("茶品数据格式不正确，已停止写入")
+  }
+  const ids = new Set<string>()
+  for (const tea of value.teas) {
+    if (!tea || typeof tea.id !== "string" || !tea.id || ids.has(tea.id)) {
+      throw new Error("茶品编号无效或重复，已停止写入")
+    }
+    validateTea(tea)
+    ids.add(tea.id)
+  }
+  return value
+}
+
 export interface StorageMeta {
   schemaVersion: 1
   updatedAt: string | null
@@ -78,6 +140,7 @@ export class TeaShelfStorage {
   private pending?: Promise<SyncResult>
   private resolvePending?: (result: SyncResult) => void
   private active?: Promise<SyncResult>
+  private teaSequence = 0
 
   constructor(options: StorageOptions) {
     this.options = options
@@ -186,6 +249,40 @@ export class TeaShelfStorage {
       meta.brands = meta.brands.filter(brand => brand !== name)
       await this.commit(meta, files)
       return [...meta.brands]
+    })
+  }
+
+  async listTeas(): Promise<Tea[]> {
+    return this.local(async () => {
+      await this.initialize()
+      const { files } = await this.snapshot()
+      return parseTeas(files[TEAS_FILE]).teas
+    })
+  }
+
+  /** Save a tea and register its brand in one local directory transaction. */
+  async upsertTea(input: TeaInput, id?: string): Promise<Tea> {
+    // Capture a detached value before queuing so caller mutation cannot affect the commit.
+    const normalized = JSON.parse(encode(validateTea(input))) as TeaInput
+    return this.local(async () => {
+      await this.initialize()
+      const { meta, files } = await this.snapshot()
+      const data = parseTeas(files[TEAS_FILE])
+      let teaId = id
+      if (teaId === undefined) {
+        do {
+          teaId = `${this.now().getTime().toString(36)}-${++this.teaSequence}-${Math.random().toString(36).slice(2, 8)}`
+        } while (data.teas.some(tea => tea.id === teaId))
+      }
+      const tea: Tea = { ...normalized, id: teaId }
+      const index = data.teas.findIndex(item => item.id === teaId)
+      if (id !== undefined && index < 0) throw new Error("茶品不存在，请返回列表后重试")
+      if (index < 0) data.teas.push(tea)
+      else data.teas[index] = tea
+      if (tea.brand && !meta.brands.includes(tea.brand)) meta.brands.push(tea.brand)
+      files[TEAS_FILE] = encode(data)
+      await this.commit(meta, files)
+      return tea
     })
   }
 

@@ -5,6 +5,7 @@ import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { TeaShelfStorage, CHECK_INTERVAL_MS, SYNC_DEBOUNCE_MS } from "./storage.ts"
+import { createTeaDraft, teaFromDraft } from "../../pages/teas/draft.ts"
 
 async function fixture(t) {
   const root = await fs.mkdtemp(join(tmpdir(), "tea-shelf-storage-"))
@@ -286,4 +287,109 @@ test("invalid brands metadata is rejected without erasing the original", async t
   await fs.writeFile(join(f.local, "meta.json"), JSON.stringify(meta))
   await assert.rejects(new TeaShelfStorage(f.options).addBrand("大益"), /Invalid tea_shelf/)
   assert.deepEqual(JSON.parse(await fs.readFile(join(f.local, "meta.json"))).brands, [12])
+})
+
+function teaInput(name = "熟普") {
+  return teaFromDraft({
+    ...createTeaDraft(), name, newBrand: "大益", preference: "很好", stock: "半斤以上",
+    pricePerJin: "280", grams300ml: "3.5", firstSteepMinutes: "1.25", gongfuGrams: "7.5",
+    firstSteepSeconds: "15", extendEveryCups: "3", extendSeconds: "5", maxSteeps: "12",
+  })
+}
+
+test("tea form preserves decimals, distinguishes blank from zero and rejects invalid numbers", () => {
+  const draft = createTeaDraft()
+  const emptyNumbers = teaFromDraft({ ...draft, name: "红茶", pricePerJin: "0", firstSteepMinutes: ".5" })
+  assert.equal(emptyNumbers.pricePerJin, 0)
+  assert.equal(emptyNumbers.cupBrew.grams300ml, null)
+  assert.equal(emptyNumbers.cupBrew.firstSteepMinutes, 0.5)
+  assert.equal(teaFromDraft({ ...draft, name: "茶", grams300ml: "３．５" }).cupBrew.grams300ml, 3.5)
+  assert.equal(teaFromDraft({ ...draft, name: "茶", firstSteepMinutes: "1,5" }).cupBrew.firstSteepMinutes, 1.5)
+  for (const patch of [
+    { name: " " }, { pricePerJin: "1.5" }, { grams300ml: "-1" }, { firstSteepMinutes: "Infinity" },
+    { firstSteepSeconds: "2.5" }, { extendEveryCups: "0" }, { maxSteeps: "0" }, { pricePerJin: "1e3" },
+  ]) {
+    assert.throws(() => teaFromDraft({ ...draft, name: "茶", ...patch }))
+  }
+})
+
+test("tea creation/editing persists every field, registers its brand and is backed up", async t => {
+  const f = await fixture(t)
+  assert.deepEqual(await f.storage.listTeas(), [])
+  const input = teaInput()
+  const tea = await f.storage.upsertTea(input)
+  assert.deepEqual(tea, { ...input, id: tea.id })
+  assert.ok(tea.id)
+  assert.deepEqual((await f.storage.getMeta()).brands, ["大益"])
+  assert.deepEqual((await f.storage.getMeta()).files, ["data.0.json"])
+  assert.equal(await f.adapter.exists(f.cloud), false)
+  const restarted = new TeaShelfStorage(f.options)
+  assert.deepEqual(await restarted.listTeas(), [tea])
+  assert.deepEqual(teaFromDraft(createTeaDraft(tea)), input)
+  const edited = await f.storage.upsertTea({ ...input, name: "熟普（更新）", pricePerJin: 300 }, tea.id)
+  assert.equal(edited.id, tea.id)
+  assert.deepEqual(await f.storage.listTeas(), [edited])
+  assert.deepEqual((await f.storage.getMeta()).brands, ["大益"])
+  await f.sync()
+  const backup = JSON.parse(await fs.readFile(join(f.cloud, "tea_shelf.2026-11-01/data.0.json")))
+  assert.deepEqual(backup.teas, [edited])
+})
+
+test("concurrent tea saves preserve other records, metadata and unrelated chunks", async t => {
+  const f = await fixture(t)
+  await f.storage.write("data.1.json", { reserved: true })
+  const [first, second] = await Promise.all([
+    f.storage.upsertTea(teaInput("熟普")),
+    f.storage.upsertTea({ ...teaInput("绿茶"), brand: "中茶" }),
+  ])
+  assert.notEqual(first.id, second.id)
+  await Promise.all([
+    f.storage.upsertTea({ ...first, name: "熟普2" }, first.id),
+    f.storage.upsertTea({ ...second, name: "绿茶2" }, second.id),
+    f.storage.addBrand("其他品牌"),
+  ])
+  assert.deepEqual((await f.storage.listTeas()).map(tea => tea.name), ["熟普2", "绿茶2"])
+  assert.deepEqual((await f.storage.getMeta()).brands, ["大益", "中茶", "其他品牌"])
+  assert.deepEqual(await f.storage.read("data.1.json"), { reserved: true })
+})
+
+test("invalid tea submissions do not mutate brands, timestamps or data", async t => {
+  const f = await fixture(t)
+  await f.storage.getMeta()
+  const before = await f.storage.getMeta()
+  const input = teaInput()
+  for (const bad of [
+    { ...input, name: " " }, { ...input, pricePerJin: 2.5 }, { ...input, stock: "大量" },
+    { ...input, preference: "喜欢" }, { ...input, cupBrew: { ...input.cupBrew, grams300ml: NaN } },
+    { ...input, gongfuBrew: { ...input.gongfuBrew, maxSteeps: 0 } },
+  ]) await assert.rejects(f.storage.upsertTea(bad))
+  await assert.rejects(f.storage.upsertTea(input, "missing-id"), /不存在/)
+  assert.deepEqual(await f.storage.getMeta(), before)
+  assert.deepEqual(await f.storage.listTeas(), [])
+})
+
+test("failed tea commit cannot leave a new brand without its tea", async t => {
+  const f = await fixture(t)
+  await f.storage.addBrand("已有品牌")
+  const before = await f.storage.getMeta()
+  const rename = f.adapter.rename
+  f.adapter.rename = async (from, to) => {
+    if (from === f.local + ".pending" && to === f.local) throw new Error("Disk full")
+    await rename(from, to)
+  }
+  await assert.rejects(f.storage.upsertTea(teaInput()), /Disk full/)
+  assert.deepEqual(await f.storage.getMeta(), before)
+  assert.deepEqual(await f.storage.listTeas(), [])
+})
+
+test("unrecognized or corrupt tea files are never overwritten by saving a new tea", async t => {
+  const f = await fixture(t)
+  await f.storage.write("data.0.json", { unrelated: true })
+  await assert.rejects(f.storage.listTeas(), /茶品数据格式/)
+  await assert.rejects(f.storage.upsertTea(teaInput()), /茶品数据格式/)
+  assert.deepEqual(await f.storage.read("data.0.json"), { unrelated: true })
+  const tea = { ...teaInput(), id: "duplicate" }
+  await f.storage.write("data.0.json", { schemaVersion: 1, teas: [tea, tea] })
+  await assert.rejects(f.storage.listTeas(), /编号无效或重复/)
+  assert.equal((await f.storage.read("data.0.json")).teas.length, 2)
 })

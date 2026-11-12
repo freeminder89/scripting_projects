@@ -2,6 +2,7 @@ import {
   Image, LazyVGrid, NavigationLink, NavigationStack, Script, ScrollView, Text, VStack,
 } from "scripting"
 import { BrandsPage } from "./brands/BrandsPage"
+import { TeasPage } from "./teas/TeasPage"
 
 export function WelcomePage() {
   return <NavigationStack>
@@ -9,7 +10,7 @@ export function WelcomePage() {
       <VStack alignment="leading" spacing={24} padding={16}>
         <VStack alignment="leading" spacing={6}>
           <Text font="title">欢迎使用茶架</Text>
-          <Text font="subheadline" foregroundStyle="secondaryLabel">amow said hello</Text>
+          <Text font="subheadline" foregroundStyle="secondaryLabel">版本 {Script.metadata.version}</Text>
         </VStack>
         <LazyVGrid
           columns={[
@@ -30,8 +31,14 @@ export function WelcomePage() {
               <Text font="subheadline" foregroundStyle="label">品牌管理</Text>
             </VStack>
           </NavigationLink>
+          <NavigationLink destination={<TeasPage />}>
+            <VStack spacing={12} frame={{ maxWidth: "infinity", height: 112 }}
+                background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>
+              <Image systemName="leaf.fill" font="title" foregroundStyle="systemGreen" />
+              <Text font="subheadline" foregroundStyle="label">茶品管理</Text>
+            </VStack>
+          </NavigationLink>
         </LazyVGrid>
-        <Text font="caption" foregroundStyle="secondaryLabel">版本 {Script.metadata.version}</Text>
       </VStack>
     </ScrollView>
   </NavigationStack>

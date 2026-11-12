@@ -29,7 +29,6 @@ export function BrandsPage() {
 
   useEffect(() => {
     state.mounted = true
-    void load()
     return () => { state.mounted = false }
   }, [])
 
@@ -56,7 +55,8 @@ export function BrandsPage() {
     }
   }
 
-  return <List navigationTitle="品牌管理" navigationBarTitleDisplayMode="inline">
+  return <List navigationTitle="品牌管理" navigationBarTitleDisplayMode="inline"
+      onAppear={() => { void load() }}>
     <Section header={<Text>新增品牌</Text>}>
       <HStack spacing={12}>
         <TextField
