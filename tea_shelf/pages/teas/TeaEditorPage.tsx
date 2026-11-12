@@ -1,5 +1,5 @@
 import {
-  Button, Form, GeometryReader, HStack, Image, Navigation, Picker, ScrollViewReader, Section, Spacer, Text, TextField, VStack,
+  Button, Form, GeometryReader, HStack, Image, Navigation, Picker, ScrollViewReader, Section, Spacer, Text, TextField,
   useEffect, useKeyboardVisible, useMemo, useState,
 } from "scripting"
 import type { ScrollViewProxy } from "scripting"
@@ -261,10 +261,7 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
       <Text foregroundStyle="systemRed">{error}</Text>
       {!ready ? <Button title="重试" action={() => { void loadBrands() }} /> : null}
     </Section> : null}
-    <Section header={<VStack alignment="leading" spacing={0}>
-      {keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : null}
-      <Text>基本信息</Text>
-    </VStack>} disabled={saving || addingBrand || deleting}>
+    <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand || deleting}>
       <HStack key={rowKey("name")} spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
         <TextField {...inputFocus("name")} title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
@@ -303,15 +300,14 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
       <NumberField key={rowKey("grams300ml")} inputFocus={inputFocus("grams300ml")} title="300ml投茶量" unit="克" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
       <NumberField key={rowKey("firstSteepMinutes")} inputFocus={inputFocus("firstSteepMinutes")} title="首泡" unit="分" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
     </Section>
-    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}
-        footer={!tea && keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : undefined}>
+    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}>
       <NumberField key={rowKey("gongfuGrams")} inputFocus={inputFocus("gongfuGrams")} title="茶碗投茶量" unit="克" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
       <NumberField key={rowKey("firstSteepSeconds")} inputFocus={inputFocus("firstSteepSeconds")} title="首泡" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
       <NumberField key={rowKey("extendEveryCups")} inputFocus={inputFocus("extendEveryCups")} title="几泡顺延" unit="泡" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
       <NumberField key={rowKey("extendSeconds")} inputFocus={inputFocus("extendSeconds")} title="顺延秒" unit="秒" integer value={draft.extendSeconds} onChanged={value => change("extendSeconds", value)} />
       <NumberField key={rowKey("maxSteeps")} inputFocus={inputFocus("maxSteeps")} title="最大泡数" unit="泡" integer value={draft.maxSteeps} onChanged={value => change("maxSteeps", value)} />
     </Section>
-    {tea ? <Section footer={keyboardVisible ? <Text hidden frame={{ height: viewportHeight / 2 }}> </Text> : undefined}>
+    {tea ? <Section>
       <Button role="destructive" disabled={saving || addingBrand || deleting}
           action={() => { void deleteTea() }}>
         <Text foregroundStyle="systemRed" frame={{ maxWidth: "infinity" }}>
