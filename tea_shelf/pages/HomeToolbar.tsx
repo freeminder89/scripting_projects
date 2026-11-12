@@ -39,13 +39,13 @@ export function HomeToolbar() {
 
   return <VStack alignment="leading" spacing={6} padding={{ top: 12, leading: 8, trailing: 8 }}
       frame={{ maxWidth: "infinity", alignment: "leading" }} onAppear={() => { void load() }}>
-    <HStack spacing={4} frame={{ minHeight: 80 }}>
+    <HStack spacing={4} frame={{ minHeight: 60 }}>
       {items.map(item => <NavigationLink key={item.id} destination={item.destination} buttonStyle="plain"
           offset={{ y: -config.toolbarOffsetUp }}>
         <VStack spacing={4}
             foregroundStyle={teaTheme.text}
             modifiers={modifiers()
-              .frame({ width: 80, height: 80 })
+              .frame({ width: 60, height: 60, alignment: "bottom" })
               .background("clear")
               .clipShape({ type: "rect", cornerRadius: 10 })}>
           <Image systemName={item.icon} font={config.toolbarIconSize} />
