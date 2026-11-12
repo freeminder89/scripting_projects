@@ -135,7 +135,9 @@ function dateLabel(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 }
 
-const clone = <T>(value: T): T => JSON.parse(encode(value)) as T
+function clone<T>(value: T): T {
+  return JSON.parse(encode(value)) as T
+}
 
 /** One instance per script. meta/data are shared in-memory objects; saves are explicit. */
 export class TeaShelfStorage {
