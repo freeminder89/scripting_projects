@@ -45,6 +45,11 @@ await storage.stop()
 同步元数据更新不会改变业务数据的 `updatedAt`。
 旧版元数据缺少 `brands` 时按空列表读取，下次写入时补齐；新增品牌会去除首尾空白并拒绝空名称和重复名称。
 
+## 配置
+
+`meta.json` 的 `config` 保存首页工具栏配置：`toolbarIconSize` 默认 30（16–42）、`toolbarTextSize` 默认 10（8–16）、`toolbarOffsetUp` 默认 0（0–12，正值向上），均为整数。
+旧元数据缺少配置或部分配置字段时使用默认值，下次写入时补齐。`saveConfig(config)` 使用本地目录事务保存，更新 `updatedAt`，保留茶品、品牌及其他数据；配置随下次备份写入 iCloud，不触发即时同步。
+
 ## 茶品
 
 `listTeas()` 读取茶品列表；`upsertTea(input, id?)` 新增或按稳定 ID 编辑茶品；`removeTea(id)` 删除茶品并保留品牌和其他分块。

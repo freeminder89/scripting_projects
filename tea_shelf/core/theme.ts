@@ -4,7 +4,7 @@ export const teaTheme = {
   background: { light: "#F0F5EC", dark: "#121C16" },
   // 茶品列表卡片的背景。
   card: { light: "#DCE9D4", dark: "#263C2C" },
-  // 首页工具栏按钮（目前为 icloud）的背景。
+  // 有底色工具按钮的背景；首页按钮当前默认透明，不使用此色。
   button: { light: "#2F6B45", dark: "#3C8257" },
   text: { light: "#153B25", dark: "#E2F1E5" },
   // 卡片品牌、斤价，以及茶品列表的加载和空数据提示。

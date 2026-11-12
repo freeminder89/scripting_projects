@@ -4,7 +4,7 @@ import assert from "node:assert/strict"
 import * as fs from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { TeaShelfStorage, CHECK_INTERVAL_MS, SYNC_DEBOUNCE_MS } from "./storage.ts"
+import { TeaShelfStorage, CHECK_INTERVAL_MS, SYNC_DEBOUNCE_MS, DEFAULT_CONFIG } from "./storage.ts"
 import { createTeaDraft, teaFromDraft } from "../../pages/teas/draft.ts"
 
 async function fixture(t) {
@@ -505,4 +505,67 @@ test("legacy unbranded teas remain readable and require a brand only when edited
   assert.equal(updated.brand, "中茶")
   assert.deepEqual((await f.storage.getMeta()).brands, ["大益", "中茶"])
   assert.deepEqual(await f.storage.removeTea(added.id), [updated])
+})
+
+test("legacy metadata without config uses detached defaults and persists them on the next write", async t => {
+  const f = await fixture(t)
+  const meta = await f.storage.getMeta()
+  delete meta.config
+  await fs.writeFile(join(f.local, "meta.json"), JSON.stringify(meta))
+  const restarted = new TeaShelfStorage(f.options)
+  const loaded = await restarted.getMeta()
+  assert.deepEqual(loaded.config, { toolbarIconSize: 30, toolbarTextSize: 10, toolbarOffsetUp: 0 })
+  loaded.config.toolbarIconSize = 40
+  assert.equal((await restarted.getMeta()).config.toolbarIconSize, 30)
+  await restarted.addBrand("大益")
+  assert.deepEqual(JSON.parse(await fs.readFile(join(f.local, "meta.json"))).config, DEFAULT_CONFIG)
+})
+
+test("config save preserves tea chunks and concurrent brand changes, and reaches the next backup", async t => {
+  const f = await fixture(t)
+  const tea = await f.storage.upsertTea(teaInput())
+  const before = await f.storage.getMeta()
+  const config = { toolbarIconSize: 40, toolbarTextSize: 13, toolbarOffsetUp: 6 }
+  await Promise.all([f.storage.saveConfig(config), f.storage.addBrand("中茶")])
+  const saved = await f.storage.getMeta()
+  assert.deepEqual(saved.config, config)
+  assert.deepEqual(saved.brands, ["大益", "中茶"])
+  assert.ok(Date.parse(saved.updatedAt) > Date.parse(before.updatedAt))
+  assert.equal(saved.lastSyncAt, before.lastSyncAt)
+  assert.deepEqual(await f.storage.listTeas(), [tea])
+  assert.deepEqual((await new TeaShelfStorage(f.options).getMeta()).config, config)
+  assert.equal(await f.adapter.exists(f.cloud), false)
+  await f.sync()
+  assert.deepEqual(JSON.parse(await fs.readFile(join(f.cloud, "tea_shelf.2026-11-01/meta.json"))).config, config)
+})
+
+test("config merges missing defaults, retains future keys and rejects invalid values without saving", async t => {
+  const f = await fixture(t)
+  const meta = await f.storage.getMeta()
+  meta.config = { toolbarTextSize: 12, futureSetting: true }
+  await fs.writeFile(join(f.local, "meta.json"), JSON.stringify(meta))
+  const restarted = new TeaShelfStorage(f.options)
+  assert.deepEqual((await restarted.getMeta()).config, { ...DEFAULT_CONFIG, toolbarTextSize: 12, futureSetting: true })
+  await restarted.saveConfig({ ...DEFAULT_CONFIG, toolbarIconSize: 36 })
+  const before = await restarted.getMeta()
+  assert.equal(before.config.futureSetting, true)
+  for (const invalid of [
+    null, [], { ...DEFAULT_CONFIG, toolbarIconSize: 100 },
+    { ...DEFAULT_CONFIG, toolbarTextSize: 0 }, { ...DEFAULT_CONFIG, toolbarOffsetUp: -1 },
+    { ...DEFAULT_CONFIG, toolbarOffsetUp: 13 }, { ...DEFAULT_CONFIG, toolbarIconSize: NaN },
+    { ...DEFAULT_CONFIG, toolbarTextSize: 10.5 },
+  ]) await assert.rejects(restarted.saveConfig(invalid))
+  assert.deepEqual(await restarted.getMeta(), before)
+})
+
+test("failed config directory replacement rolls back to the previous settings", async t => {
+  const f = await fixture(t)
+  const before = await f.storage.getMeta()
+  const rename = f.adapter.rename
+  f.adapter.rename = async (from, to) => {
+    if (from === f.local + ".pending" && to === f.local) throw new Error("Disk full")
+    await rename(from, to)
+  }
+  await assert.rejects(f.storage.saveConfig({ ...DEFAULT_CONFIG, toolbarTextSize: 12 }), /Disk full/)
+  assert.deepEqual(await f.storage.getMeta(), before)
 })
