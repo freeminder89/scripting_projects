@@ -67,24 +67,7 @@ export function TeasPage() {
           <VStack alignment="leading" spacing={6} padding={10}
               modifiers={modifiers()
                 .frame({ maxWidth: "infinity", minHeight: 109, alignment: "leading" })
-                .background({
-                  light: {
-                    gradient: [
-                      { color: "#F4F1D9", location: 0 },
-                      { color: "#E2E7D0", location: 1 },
-                    ],
-                    startPoint: { x: 0, y: 0 },
-                    endPoint: { x: 1, y: 1 },
-                  },
-                  dark: {
-                    gradient: [
-                      { color: "#30382B", location: 0 },
-                      { color: "#20271F", location: 1 },
-                    ],
-                    startPoint: { x: 0, y: 0 },
-                    endPoint: { x: 1, y: 1 },
-                  },
-                })
+                .background("#769826")
                 .clipShape({ type: "rect", cornerRadius: 16 })}>
             <Text font="headline" foregroundStyle="label">{tea.name}</Text>
             <Text font="subheadline" foregroundStyle="secondaryLabel">{tea.brand || "未选品牌"}</Text>
