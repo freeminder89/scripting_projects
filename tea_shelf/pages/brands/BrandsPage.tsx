@@ -1,5 +1,6 @@
 import { Button, HStack, List, Section, Text, TextField, useEffect, useMemo, useState } from "scripting"
 import { storage } from "../../core/storage"
+import { formatError } from "../../core/errors"
 
 export function BrandsPage() {
   const [brands, setBrands] = useState<string[]>([])
@@ -20,8 +21,8 @@ export function BrandsPage() {
         setBrands(meta.brands)
         setReady(true)
       }
-    } catch {
-      if (state.mounted) setError("读取品牌失败，请重试。")
+    } catch (error) {
+      if (state.mounted) setError(formatError(error))
     } finally {
       if (state.mounted) setLoading(false)
     }
@@ -47,7 +48,7 @@ export function BrandsPage() {
       if (state.mounted) {
         const message = error instanceof Error ? error.message : ""
         setError(message === "该品牌已存在" || message === "请输入品牌名称"
-          ? message : "保存失败，请重试。")
+          ? message : formatError(error))
       }
     } finally {
       state.busy = false

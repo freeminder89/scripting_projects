@@ -1,17 +1,17 @@
 import {
-  Button, LazyVGrid, LongPressGesture, NavigationLink, ScrollView, Text, VStack, useEffect, useMemo, useState,
+  Button, LazyVGrid, NavigationLink, ScrollView, Text, VStack, useEffect, useMemo, useState,
 } from "scripting"
 import { storage } from "../../core/storage"
 import type { Tea } from "../../core/storage"
 import { TeaEditorPage } from "./TeaEditorPage"
+import { formatError } from "../../core/errors"
 
 export function TeasPage() {
   const [teas, setTeas] = useState<Tea[]>([])
   const [loading, setLoading] = useState(true)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState("")
-  const [deleting, setDeleting] = useState(false)
-  const state = useMemo(() => ({ mounted: true, deleting: false }), [])
+  const state = useMemo(() => ({ mounted: true }), [])
 
   async function load() {
     setLoading(true)
@@ -24,7 +24,7 @@ export function TeasPage() {
       }
     } catch (error) {
       console.error("tea_shelf load teas:", error)
-      if (state.mounted) setError("读取茶品失败，原有数据未被修改，请重试。")
+      if (state.mounted) setError(formatError(error))
     } finally {
       if (state.mounted) setLoading(false)
     }
@@ -41,32 +41,15 @@ export function TeasPage() {
       ? previous.map(item => item.id === tea.id ? tea : item) : [...previous, tea])
   }
 
-  async function confirmDelete(tea: Tea) {
-    if (state.deleting) return
-    state.deleting = true
-    setDeleting(true)
-    setError("")
-    try {
-      const confirmed = await Dialog.confirm({
-        title: "删除茶品", message: `确定删除“${tea.name}”吗？`, cancelLabel: "取消", confirmLabel: "删除",
-      })
-      if (!confirmed || !state.mounted) return
-      const next = await storage.removeTea(tea.id)
-      if (state.mounted) setTeas(next)
-    } catch (error) {
-      console.error("tea_shelf delete tea:", error)
-      if (state.mounted) setError("删除失败，原有数据未被修改，请重试。")
-    } finally {
-      state.deleting = false
-      if (state.mounted) setDeleting(false)
-    }
+  function deleted(id: string) {
+    if (state.mounted) setTeas(previous => previous.filter(tea => tea.id !== id))
   }
 
   return <ScrollView
       navigationTitle="茶品管理"
       navigationBarTitleDisplayMode="inline"
       onAppear={() => { void load() }}
-      toolbar={{ topBarTrailing: <NavigationLink title="新增茶品" disabled={!ready || loading || deleting}
+      toolbar={{ topBarTrailing: <NavigationLink title="新增茶品" disabled={!ready || loading}
           destination={<TeaEditorPage onSaved={saved} />} /> }}
   >
     <VStack alignment="leading" spacing={16} padding={16} frame={{ maxWidth: "infinity", alignment: "leading" }}>
@@ -80,12 +63,9 @@ export function TeasPage() {
         { size: { type: "flexible", min: 0 } },
         { size: { type: "flexible", min: 0 } },
       ]}>
-        {teas.map(tea => <NavigationLink key={tea.id} destination={<TeaEditorPage tea={tea} onSaved={saved} />}
-            buttonStyle="plain" frame={{ maxWidth: "infinity" }} disabled={deleting}
-            contentShape="rect"
-            highPriorityGesture={LongPressGesture({ minDuration: 500 }).onEnded(recognized => {
-              if (recognized) void confirmDelete(tea)
-            })}>
+        {teas.map(tea => <NavigationLink key={tea.id}
+            destination={<TeaEditorPage tea={tea} onSaved={saved} onDeleted={deleted} />}
+            buttonStyle="plain" frame={{ maxWidth: "infinity" }} contentShape="rect">
           <VStack alignment="leading" spacing={10} padding={14}
               frame={{ maxWidth: "infinity", minHeight: 156, alignment: "leading" }}
               background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>

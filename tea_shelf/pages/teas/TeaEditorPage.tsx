@@ -6,6 +6,7 @@ import { storage, TEA_PREFERENCES, TEA_STOCKS } from "../../core/storage"
 import type { Tea } from "../../core/storage"
 import { createTeaDraft, teaFromDraft } from "./draft"
 import type { TeaDraft } from "./draft"
+import { formatError } from "../../core/errors"
 
 function NumberField({ title, unit, value, integer, onChanged }: {
   title: string, unit: string, value: string, integer?: boolean, onChanged: (value: string) => void,
@@ -19,13 +20,16 @@ function NumberField({ title, unit, value, integer, onChanged }: {
   </HStack>
 }
 
-export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea) => void }) {
+export function TeaEditorPage({ tea, onSaved, onDeleted }: {
+  tea?: Tea, onSaved: (tea: Tea) => void, onDeleted?: (id: string) => void,
+}) {
   const dismiss = Navigation.useDismiss()
   const [draft, setDraft] = useState(createTeaDraft(tea))
   const [brands, setBrands] = useState<string[]>([])
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
   const [addingBrand, setAddingBrand] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState("")
   const state = useMemo(() => ({ mounted: true, busy: false }), [])
 
@@ -38,8 +42,8 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
         setBrands(meta.brands)
         setReady(true)
       }
-    } catch {
-      if (state.mounted) setError("读取品牌失败，请重试。")
+    } catch (error) {
+      if (state.mounted) setError(formatError(error))
     }
   }
 
@@ -61,7 +65,8 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       const name = await Dialog.prompt({
         title: "新增品牌", placeholder: "品牌名称", cancelLabel: "取消", confirmLabel: "添加",
       })
-      if (name === null || !state.mounted) return
+      // Native bridges may return either null or undefined on cancellation.
+      if (name == null || !state.mounted) return
       const next = await storage.addBrand(name)
       if (state.mounted) {
         setBrands(next)
@@ -71,7 +76,7 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       console.error("tea_shelf add brand:", error)
       if (state.mounted) {
         const message = error instanceof Error ? error.message : ""
-        setError(/请输入品牌名称|该品牌已存在/.test(message) ? message : "新增品牌失败，请重试。")
+        setError(/请输入品牌名称|该品牌已存在/.test(message) ? message : formatError(error))
       }
     } finally {
       state.busy = false
@@ -96,11 +101,33 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
     } catch (error) {
       if (state.mounted) {
         const message = error instanceof Error ? error.message : ""
-        setError(/请输入|须为|请选择|不存在/.test(message) ? message : "保存失败，请重试。")
+        setError(/请输入|须为|请选择|不存在/.test(message) ? message : formatError(error))
       }
     } finally {
       state.busy = false
       if (state.mounted) setSaving(false)
+    }
+  }
+
+  async function deleteTea() {
+    if (!tea || state.busy) return
+    state.busy = true
+    setDeleting(true)
+    setError("")
+    try {
+      const confirmed = await Dialog.confirm({
+        title: "删除茶品", message: `确定删除“${tea.name}”吗？`, cancelLabel: "取消", confirmLabel: "删除",
+      })
+      if (!confirmed || !state.mounted) return
+      await storage.removeTea(tea.id)
+      onDeleted?.(tea.id)
+      if (state.mounted) dismiss()
+    } catch (error) {
+      console.error("tea_shelf delete tea:", error)
+      if (state.mounted) setError(formatError(error))
+    } finally {
+      state.busy = false
+      if (state.mounted) setDeleting(false)
     }
   }
 
@@ -115,7 +142,7 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       }}
       toolbar={{
         topBarTrailing: <Button title={saving ? "保存中…" : "保存"}
-            disabled={!ready || saving || addingBrand || !draft.name.trim()} action={() => { void save() }} />,
+            disabled={!ready || saving || addingBrand || deleting || !draft.name.trim()} action={() => { void save() }} />,
         keyboard: <HStack><Spacer /><Button title="完成" action={() => Keyboard.hide()} /></HStack>,
       }}
   >
@@ -123,7 +150,7 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
       <Text foregroundStyle="systemRed">{error}</Text>
       {!ready ? <Button title="重试" action={() => { void loadBrands() }} /> : null}
     </Section> : null}
-    <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand}>
+    <Section header={<Text>基本信息</Text>} disabled={saving || addingBrand || deleting}>
       <HStack spacing={12}>
         <Text frame={{ width: 56, alignment: "leading" }}>品名</Text>
         <TextField title="" prompt="输入茶品名称" value={draft.name} onChanged={value => change("name", value)}
@@ -158,16 +185,24 @@ export function TeaEditorPage({ tea, onSaved }: { tea?: Tea, onSaved: (tea: Tea)
         </Picker>
       </HStack>
     </Section>
-    <Section header={<Text>杯泡配置</Text>} footer={<Text>数字可留空，留空表示未设置</Text>} disabled={saving || addingBrand}>
-      <NumberField title="300ml投茶量" unit="g" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
-      <NumberField title="首杯出汤" unit="分钟" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
+    <Section header={<Text>杯泡配置</Text>} footer={<Text>数字可留空，留空表示未设置</Text>} disabled={saving || addingBrand || deleting}>
+      <NumberField title="300ml投茶量" unit="克" value={draft.grams300ml} onChanged={value => change("grams300ml", value)} />
+      <NumberField title="首泡" unit="分" value={draft.firstSteepMinutes} onChanged={value => change("firstSteepMinutes", value)} />
     </Section>
-    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand}>
-      <NumberField title="茶碗投茶量" unit="g" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
-      <NumberField title="首杯出汤" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
-      <NumberField title="几杯顺延" unit="杯" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
+    <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}>
+      <NumberField title="茶碗投茶量" unit="克" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
+      <NumberField title="首泡" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
+      <NumberField title="几泡顺延" unit="泡" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
       <NumberField title="顺延秒" unit="秒" integer value={draft.extendSeconds} onChanged={value => change("extendSeconds", value)} />
       <NumberField title="最大泡数" unit="泡" integer value={draft.maxSteeps} onChanged={value => change("maxSteeps", value)} />
     </Section>
+    {tea ? <Section>
+      <Button role="destructive" disabled={saving || addingBrand || deleting}
+          action={() => { void deleteTea() }}>
+        <Text foregroundStyle="systemRed" frame={{ maxWidth: "infinity", minHeight: 44 }}>
+          {deleting ? "删除中…" : "删除茶品"}
+        </Text>
+      </Button>
+    </Section> : null}
   </Form>
 }

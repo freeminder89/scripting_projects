@@ -49,10 +49,10 @@ export function validateTea(input: TeaInput): TeaInput {
   if (!input.cupBrew || !input.gongfuBrew) throw new Error("泡茶配置格式不正确")
   number(input.pricePerJin, "斤价", true)
   number(input.cupBrew.grams300ml, "300ml投茶量")
-  number(input.cupBrew.firstSteepMinutes, "杯泡首杯出汤")
+  number(input.cupBrew.firstSteepMinutes, "杯泡首泡")
   number(input.gongfuBrew.grams, "茶碗投茶量")
-  number(input.gongfuBrew.firstSteepSeconds, "功夫首杯出汤", true)
-  number(input.gongfuBrew.extendEveryCups, "几杯顺延", true, 1)
+  number(input.gongfuBrew.firstSteepSeconds, "功夫首泡", true)
+  number(input.gongfuBrew.extendEveryCups, "几泡顺延", true, 1)
   number(input.gongfuBrew.extendSeconds, "顺延秒", true)
   number(input.gongfuBrew.maxSteeps, "最大泡数", true, 1)
   return { ...input, name: input.name.trim(), brand: input.brand.trim() }

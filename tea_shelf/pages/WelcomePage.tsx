@@ -1,5 +1,5 @@
 import {
-  Image, LazyVGrid, NavigationLink, NavigationStack, Script, ScrollView, Text, VStack,
+  Image, LazyVGrid, NavigationLink, NavigationStack, Script, ScrollView, Text, VStack, modifiers,
 } from "scripting"
 import { BrandsPage } from "./brands/BrandsPage"
 import { TeasPage } from "./teas/TeasPage"
@@ -9,7 +9,7 @@ export function WelcomePage() {
     <ScrollView navigationTitle="茶架">
       <VStack alignment="leading" spacing={24} padding={16} frame={{ maxWidth: "infinity", alignment: "leading" }}>
         <VStack alignment="leading" spacing={6}>
-          <Text font="title">欢迎使用茶架</Text>
+          <Text font="title">欢迎使用</Text>
           <Text font="subheadline" foregroundStyle="secondaryLabel">版本 {Script.metadata.version}</Text>
         </VStack>
         <LazyVGrid
@@ -23,17 +23,21 @@ export function WelcomePage() {
           <NavigationLink destination={<BrandsPage />} buttonStyle="plain" frame={{ maxWidth: "infinity" }}>
             <VStack
                 spacing={12}
-                frame={{ maxWidth: "infinity", height: 112 }}
-                background="systemGray6"
-                clipShape={{ type: "rect", cornerRadius: 16 }}
+                modifiers={modifiers()
+                  .frame({ maxWidth: "infinity", minHeight: 112, maxHeight: 112 })
+                  .background("systemGray6")
+                  .clipShape({ type: "rect", cornerRadius: 16 })}
             >
               <Image systemName="tag.fill" font="title" foregroundStyle="systemGreen" />
               <Text font="subheadline" foregroundStyle="label">品牌管理</Text>
             </VStack>
           </NavigationLink>
           <NavigationLink destination={<TeasPage />} buttonStyle="plain" frame={{ maxWidth: "infinity" }}>
-            <VStack spacing={12} frame={{ maxWidth: "infinity", height: 112 }}
-                background="systemGray6" clipShape={{ type: "rect", cornerRadius: 16 }}>
+            <VStack spacing={12}
+                modifiers={modifiers()
+                  .frame({ maxWidth: "infinity", minHeight: 112, maxHeight: 112 })
+                  .background("systemGray6")
+                  .clipShape({ type: "rect", cornerRadius: 16 })}>
               <Image systemName="leaf.fill" font="title" foregroundStyle="systemGreen" />
               <Text font="subheadline" foregroundStyle="label">茶品管理</Text>
             </VStack>

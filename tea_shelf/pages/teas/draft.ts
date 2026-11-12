@@ -49,12 +49,12 @@ export function teaFromDraft(draft: TeaDraft): TeaInput {
     pricePerJin: number(draft.pricePerJin, "斤价", true),
     cupBrew: {
       grams300ml: number(draft.grams300ml, "300ml投茶量"),
-      firstSteepMinutes: number(draft.firstSteepMinutes, "杯泡首杯出汤"),
+      firstSteepMinutes: number(draft.firstSteepMinutes, "杯泡首泡"),
     },
     gongfuBrew: {
       grams: number(draft.gongfuGrams, "茶碗投茶量"),
-      firstSteepSeconds: number(draft.firstSteepSeconds, "功夫首杯出汤", true),
-      extendEveryCups: number(draft.extendEveryCups, "几杯顺延", true, true),
+      firstSteepSeconds: number(draft.firstSteepSeconds, "功夫首泡", true),
+      extendEveryCups: number(draft.extendEveryCups, "几泡顺延", true, true),
       extendSeconds: number(draft.extendSeconds, "顺延秒", true),
       maxSteeps: number(draft.maxSteeps, "最大泡数", true, true),
     },
