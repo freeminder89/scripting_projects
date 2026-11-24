@@ -92,6 +92,42 @@ test("tea form preserves decimals, distinguishes blank from zero and rejects inv
   }
 })
 
+test("cross rating, trial stock and numeric water temperature persist through save, restart and backup", async t => {
+  const f = await fixture(t)
+  const draft = { ...createTeaDraft(), name: "试喝茶", brand: "大益", preference: "❌", stock: "试喝", waterTemperature: "95.5" }
+  const input = teaFromDraft(draft)
+  assert.equal(input.gongfuBrew.waterTemperature, 95.5)
+  const saved = await saveTea(f, input)
+  const restarted = new TeaShelfStorage(f.options)
+  assert.deepEqual(await restarted.listTeas(), [saved])
+  assert.equal(createTeaDraft(saved).waterTemperature, "95.5")
+  await f.sync()
+  assert.deepEqual((await json(join(f.cloud, "tea_shelf.2026-11-01/data.0.json"))).teas, [saved])
+  assert.equal(teaFromDraft({ ...draft, waterTemperature: "" }).gongfuBrew.waterTemperature, null)
+  assert.equal(teaFromDraft({ ...draft, waterTemperature: "0" }).gongfuBrew.waterTemperature, 0)
+  for (const waterTemperature of ["-1", "Infinity", "abc"]) {
+    assert.throws(() => teaFromDraft({ ...draft, waterTemperature }), /水温/)
+  }
+  for (const waterTemperature of [-1, NaN, "95"]) {
+    assert.throws(() => f.storage.upsertTea({ ...input, gongfuBrew: { ...input.gongfuBrew, waterTemperature } }), /水温/)
+  }
+})
+
+test("older teas without water temperature load as unset and gain the field on the next data save", async t => {
+  const f = await fixture(t)
+  await ready(f)
+  const legacy = { ...teaInput(), id: "legacy" }
+  delete legacy.gongfuBrew.waterTemperature
+  await fs.writeFile(join(f.local, "data.0.json"), JSON.stringify({ schemaVersion: 1, teas: [legacy] }))
+  const restarted = new TeaShelfStorage(f.options)
+  const [loaded] = await restarted.listTeas()
+  assert.equal(loaded.gongfuBrew.waterTemperature, null)
+  assert.equal(createTeaDraft(loaded).waterTemperature, "")
+  assert.equal("waterTemperature" in (await json(join(f.local, "data.0.json"))).teas[0].gongfuBrew, false)
+  await restarted.saveData()
+  assert.equal((await json(join(f.local, "data.0.json"))).teas[0].gongfuBrew.waterTemperature, null)
+})
+
 
 const json = async path => JSON.parse(await fs.readFile(path, "utf8"))
 async function ready(f) { await f.storage.getMeta(); return f.storage }

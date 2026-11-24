@@ -2,6 +2,7 @@ import type { Tea } from "./storage/storage"
 
 const stockGrams: Record<Tea["stock"], number> = {
   "无": 0,
+  "试喝": 10,
   "一两": 50,
   "半斤以上": 250,
 }

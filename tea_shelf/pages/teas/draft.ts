@@ -9,6 +9,7 @@ export type TeaDraft = {
   grams300ml: string
   firstSteepMinutes: string
   gongfuGrams: string
+  waterTemperature: string
   firstSteepSeconds: string
   extendEveryCups: string
   extendSeconds: string
@@ -23,6 +24,7 @@ export function createTeaDraft(tea?: Tea): TeaDraft {
     pricePerJin: text(tea?.pricePerJin), grams300ml: text(tea?.cupBrew.grams300ml),
     firstSteepMinutes: text(tea?.cupBrew.firstSteepMinutes),
     gongfuGrams: text(tea?.gongfuBrew.grams), firstSteepSeconds: text(tea?.gongfuBrew.firstSteepSeconds),
+    waterTemperature: text(tea?.gongfuBrew.waterTemperature),
     extendEveryCups: text(tea?.gongfuBrew.extendEveryCups),
     extendSeconds: text(tea?.gongfuBrew.extendSeconds), maxSteeps: text(tea?.gongfuBrew.maxSteeps),
   }
@@ -54,6 +56,7 @@ export function teaFromDraft(draft: TeaDraft): TeaInput {
     },
     gongfuBrew: {
       grams: number(draft.gongfuGrams, "茶碗投茶量"),
+      waterTemperature: number(draft.waterTemperature, "水温"),
       firstSteepSeconds: number(draft.firstSteepSeconds, "功夫首泡", true),
       extendEveryCups: number(draft.extendEveryCups, "几泡顺延", true, true),
       extendSeconds: number(draft.extendSeconds, "顺延秒", true),

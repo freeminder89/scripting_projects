@@ -1,5 +1,5 @@
-export const TEA_PREFERENCES = ["✅还行", "👍夯", "💥顶夯"] as const
-export const TEA_STOCKS = ["无", "一两", "半斤以上"] as const
+export const TEA_PREFERENCES = ["❌", "✅还行", "👍夯", "💥顶夯"] as const
+export const TEA_STOCKS = ["无", "试喝", "一两", "半斤以上"] as const
 export type TeaInput = {
   name: string
   brand: string
@@ -9,6 +9,7 @@ export type TeaInput = {
   cupBrew: { grams300ml: number | null, firstSteepMinutes: number | null }
   gongfuBrew: {
     grams: number | null
+    waterTemperature: number | null
     firstSteepSeconds: number | null
     extendEveryCups: number | null
     extendSeconds: number | null
@@ -48,6 +49,7 @@ export function validateTea(input: TeaInput, allowEmptyBrand = false): TeaInput 
   number(input.cupBrew.grams300ml, "300ml投茶量")
   number(input.cupBrew.firstSteepMinutes, "杯泡首泡")
   number(input.gongfuBrew.grams, "茶碗投茶量")
+  number(input.gongfuBrew.waterTemperature, "水温")
   number(input.gongfuBrew.firstSteepSeconds, "功夫首泡", true)
   number(input.gongfuBrew.extendEveryCups, "几泡顺延", true, 1)
   number(input.gongfuBrew.extendSeconds, "顺延秒", true)
@@ -67,6 +69,10 @@ function parseTeas(content?: string): { schemaVersion: 1, teas: Tea[] } {
       throw new Error("茶品编号无效或重复，已停止写入")
     }
     tea.preference = readPreference(tea.preference)
+    // Older tea records have no water-temperature setting.
+    if (tea.gongfuBrew && tea.gongfuBrew.waterTemperature === undefined) {
+      tea.gongfuBrew.waterTemperature = null
+    }
     // Keep older unbranded records readable; new saves must provide a brand.
     validateTea(tea, true)
     ids.add(tea.id)

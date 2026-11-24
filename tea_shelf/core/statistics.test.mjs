@@ -6,7 +6,7 @@ function tea(stock, pricePerJin, cupGrams = null, gongfuGrams = null) {
   return {
     stock, pricePerJin,
     cupBrew: { grams300ml: cupGrams, firstSteepMinutes: null },
-    gongfuBrew: { grams: gongfuGrams, firstSteepSeconds: null, extendEveryCups: null, extendSeconds: null, maxSteeps: null },
+    gongfuBrew: { grams: gongfuGrams, waterTemperature: null, firstSteepSeconds: null, extendEveryCups: null, extendSeconds: null, maxSteeps: null },
   }
 }
 
@@ -55,4 +55,15 @@ test("unconfigured means both tea amounts are unset, regardless of stock; zero i
   ])
   assert.equal(result.unconfiguredCount, 2)
   assert.equal(result.registeredCount, 7)
+})
+
+test("trial portions count as stocked, contribute 10g each, and carry into liang and jin", () => {
+  assert.deepEqual(calculateTeaStatistics([tea("试喝", 500)]), {
+    stockedCount: 1, registeredCount: 1, unconfiguredCount: 1, weight: "0斤0.2两", value: 10,
+  })
+  assert.equal(calculateTeaStatistics(Array.from({ length: 5 }, () => tea("试喝", 0))).weight, "0斤1两")
+  assert.equal(calculateTeaStatistics(Array.from({ length: 50 }, () => tea("试喝", 0))).weight, "1斤0两")
+  const temperatureOnly = tea("试喝", null)
+  temperatureOnly.gongfuBrew.waterTemperature = 95
+  assert.equal(calculateTeaStatistics([temperatureOnly]).unconfiguredCount, 1)
 })

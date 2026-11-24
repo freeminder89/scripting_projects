@@ -9,7 +9,7 @@ import { createTeaDraft, teaFromDraft } from "./draft"
 import type { TeaDraft } from "./draft"
 import { formatError } from "../../core/errors"
 
-const inputOrder = ["name", "pricePerJin", "grams300ml", "firstSteepMinutes", "gongfuGrams",
+const inputOrder = ["name", "pricePerJin", "grams300ml", "firstSteepMinutes", "gongfuGrams", "waterTemperature",
   "firstSteepSeconds", "extendEveryCups", "extendSeconds", "maxSteeps"] as const
 type InputField = typeof inputOrder[number]
 type InputFocus = { key: string, autofocus: boolean, onFocus: () => void, onBlur: () => void }
@@ -302,6 +302,7 @@ function TeaEditorForm({ tea, onSaved, onDeleted, scrollProxy, viewportHeight }:
     </Section>
     <Section header={<Text>功夫配置</Text>} disabled={saving || addingBrand || deleting}>
       <NumberField key={rowKey("gongfuGrams")} inputFocus={inputFocus("gongfuGrams")} title="茶碗投茶量" unit="克" value={draft.gongfuGrams} onChanged={value => change("gongfuGrams", value)} />
+      <NumberField key={rowKey("waterTemperature")} inputFocus={inputFocus("waterTemperature")} title="水温" unit="℃" value={draft.waterTemperature} onChanged={value => change("waterTemperature", value)} />
       <NumberField key={rowKey("firstSteepSeconds")} inputFocus={inputFocus("firstSteepSeconds")} title="首泡" unit="秒" integer value={draft.firstSteepSeconds} onChanged={value => change("firstSteepSeconds", value)} />
       <NumberField key={rowKey("extendEveryCups")} inputFocus={inputFocus("extendEveryCups")} title="几泡顺延" unit="泡" integer value={draft.extendEveryCups} onChanged={value => change("extendEveryCups", value)} />
       <NumberField key={rowKey("extendSeconds")} inputFocus={inputFocus("extendSeconds")} title="顺延秒" unit="秒" integer value={draft.extendSeconds} onChanged={value => change("extendSeconds", value)} />
